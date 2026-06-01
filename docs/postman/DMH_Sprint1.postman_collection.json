@@ -1,0 +1,365 @@
+{
+  "info": {
+    "_postman_id": "dmh-collection-2024",
+    "name": "DMH Sprint 1",
+    "description": "Colección de endpoints para testing CRUD de microservicios DMH",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth Service",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/auth/login",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Validate Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/auth/validate",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["auth", "validate"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users Service",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/users",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["users"]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/users/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["users", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Juan\",\n  \"lastName\": \"Pérez\",\n  \"email\": \"juan@example.com\",\n  \"username\": \"jperes\",\n  \"roleId\": 2\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/users",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["users"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Juan\",\n  \"lastName\": \"Pérez García\",\n  \"email\": \"juan.perez@example.com\",\n  \"roleId\": 2\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/users/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["users", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/users/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["users", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accounts Service",
+      "item": [
+        {
+          "name": "Get All Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/accounts",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["accounts"]
+            }
+          }
+        },
+        {
+          "name": "Get Account by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/accounts/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["accounts", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"accountNumber\": \"ACC0001\",\n  \"accountType\": \"CHECKING\",\n  \"balance\": 1000.00,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/accounts",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["accounts"]
+            }
+          }
+        },
+        {
+          "name": "Get Account Cards",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/accounts/1/cards",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["accounts", "1", "cards"]
+            }
+          }
+        },
+        {
+          "name": "Create Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": 1,\n  \"cardType\": \"DEBIT\",\n  \"cardNetwork\": \"VISA\",\n  \"expiryDate\": \"12/26\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/accounts/cards",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["accounts", "cards"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "Eureka Server Health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8761",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8761"
+            }
+          }
+        },
+        {
+          "name": "API Gateway Health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8080/actuator/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "Users Service Health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8081/actuator/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8081",
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "Accounts Service Health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8082/actuator/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8082",
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "Auth Service Health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8088/actuator/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8088",
+              "path": ["actuator", "health"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "token",
+      "value": ""
+    }
+  ]
+}
+

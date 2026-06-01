@@ -1,0 +1,54 @@
+Diagrama de Arquitectura DMH Backend - Sprint 1
+
+Este archivo debe contener el diagrama de bloques de la solución de microservicios.
+
+ARQUITECTURA DE COMPONENTES:
+
+┌─────────────────────────────────────────────────────────────────┐
+│                         Cliente / Frontend                      │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+        ┌────────────────────────────────────────┐
+        │      API Gateway (Puerto 8080)         │
+        │   - Enrutamiento de Solicitudes        │
+        │   - Filtros y Validación               │
+        │   - Balanceo de Carga                  │
+        └────────────┬───────────────────────────┘
+                     │
+        ┌────────────┴────────┬─────────────┬──────────────┐
+        │                      │             │              │
+        ▼                      ▼             ▼              ▼
+   ┌─────────────┐  ┌──────────────┐ ┌──────────────┐ ┌──────────┐
+   │  Eureka     │  │ Auth Service │ │ Users Service│ │ Accounts │
+   │  Discovery  │  │ (Puerto 8088)│ │(Puerto 8081) │ │ Service  │
+   │(Puerto 8761)│  │              │ │              │ │(8082)    │
+   └─────────────┘  │ - JWT        │ │ - CRUD Users │ │          │
+                    │ - Validación │ │ - Roles      │ │ - Cuentas│
+                    │ - Roles      │ │ - Perfiles   │ │ - Tarjetas
+                    └──────────────┘ └──────────────┘ │ - Saldo  │
+                                                       └──────────┘
+                          │              │              │
+                          ▼              ▼              ▼
+                    ┌────────────────┐  ┌────────────────┐
+                    │  users_db      │  │  accounts_db   │
+                    │ (MySQL 8.0)    │  │  (MySQL 8.0)   │
+                    │ Puerto 3307    │  │  Puerto 3308   │
+                    └────────────────┘  └────────────────┘
+
+Flujo de Datos:
+1. Cliente envía solicitud al API Gateway
+2. Gateway valida contra Auth Service (JWT)
+3. Gateway enruta a servicio correspondiente
+4. Servicios consultan bases de datos respectivas
+5. Respuesta regresa a través del Gateway
+6. Eureka mantiene registro de servicios disponibles
+
+Tecnologías:
+- Spring Boot 2.7.12
+- Spring Cloud (Eureka, Gateway)
+- Spring Security
+- JWT (JSON Web Tokens)
+- MySQL 8.0
+- Docker & Docker Compose
+

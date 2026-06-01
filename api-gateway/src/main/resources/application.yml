@@ -1,0 +1,82 @@
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/auth/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+        
+        - id: users-service
+          uri: lb://USERS-SERVICE
+          predicates:
+            - Path=/users/**
+          filters:
+            - AuthenticationFilter
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+        
+        - id: accounts-service
+          uri: lb://ACCOUNTS-SERVICE
+          predicates:
+            - Path=/accounts/**
+          filters:
+            - AuthenticationFilter
+            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+
+server:
+  port: 8080
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+    instanceId: ${spring.cloud.client.hostname}:${spring.application.name}:${server.port}
+
+# Swagger/OpenAPI configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui/index.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+  show-actuator: false
+  # Agrupa servicios documentados
+  swagger-ui:
+    urls:
+      - name: Auth Service
+        url: /v3/api-docs/auth-service
+      - name: Users Service
+        url: /v3/api-docs/users-service
+      - name: Accounts Service
+        url: /v3/api-docs/accounts-service
+
+# Management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.dmh: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: DEBUG
+
