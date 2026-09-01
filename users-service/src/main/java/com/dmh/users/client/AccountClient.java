@@ -9,6 +9,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface AccountClient {
 
     // Este endpoint lo crearemos en el accounts-service para inicializar la billetera
-    @PostMapping("/accounts/internal/create")
+    @PostMapping("/api/accounts/internal/create")
     AccountResponse createAccount(@RequestParam("userId") Long userId);
 }

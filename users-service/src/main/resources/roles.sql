@@ -1,5 +1,5 @@
 -- Inicialización de tabla Rol
-INSERT INTO rol (id, nombre) VALUES
+INSERT INTO rol (id, name) VALUES
 (1, 'ADMIN'),
 (2, 'USER'),
 (3, 'MODERATOR'),

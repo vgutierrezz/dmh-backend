@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 public class AuthController {
 
     private final AuthService authService;
@@ -37,6 +37,16 @@ public class AuthController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody); // 400
             }
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody); // 500
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        try {
+            authService.logout(authorizationHeader);
+            return ResponseEntity.ok(Map.of("message", "Logout exitoso"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         }
     }
 }

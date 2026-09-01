@@ -37,4 +37,15 @@ public class AuthService {
 
         return new AuthResponse(token);
     }
+
+    public void logout(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("Token requerido");
+        }
+
+        String token = authorizationHeader.substring(7);
+        if (!jwtProvider.validateToken(token)) {
+            throw new IllegalArgumentException("Token inválido");
+        }
+    }
 }

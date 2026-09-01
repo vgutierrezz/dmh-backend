@@ -20,7 +20,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable) // Nueva sintaxis lambda para deshabilitar CSRF
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll() // Cambiado antMatchers por requestMatchers
+                        .requestMatchers("/api/auth/**").permitAll() // Cambiado antMatchers por requestMatchers
                         .anyRequest().authenticated()
                 );
 

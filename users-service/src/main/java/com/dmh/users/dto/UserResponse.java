@@ -9,11 +9,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UserResponse {
     private Long id;
-    private String nombre;
-    private String apellido;
+    private String firstName;
+    private String lastName;
     private String dni;
     private String email;
-    private String telefono;
+    private String phone;
     private String cvu;   // Proveniente del accounts-service vía Feign
     private String alias; // Proveniente del accounts-service vía Feign
 }

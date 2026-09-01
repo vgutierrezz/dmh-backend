@@ -3,29 +3,37 @@ spring:
     name: api-gateway
   cloud:
     gateway:
+      # Configuración Global de CORS para integración con Frontend
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
       routes:
         - id: auth-service
           uri: lb://AUTH-SERVICE
           predicates:
-            - Path=/auth/**
-          filters:
-            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
-        
+            - Path=/api/auth/**
+
         - id: users-service
           uri: lb://USERS-SERVICE
           predicates:
-            - Path=/users/**
-          filters:
-            - AuthenticationFilter
-            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
-        
+            - Path=/api/users/**
+          # filters:
+          #   - AuthenticationFilter # Descomentar cuando la clase Java esté creada en el Sprint 2
+
         - id: accounts-service
           uri: lb://ACCOUNTS-SERVICE
           predicates:
-            - Path=/accounts/**
-          filters:
-            - AuthenticationFilter
-            - RewritePath=/api/v1/(?<segment>.*), /api/v1/$\{segment}
+            - Path=/api/accounts/**
+          # filters:
+          #   - AuthenticationFilter
 
 server:
   port: 8080
@@ -39,7 +47,7 @@ eureka:
     prefer-ip-address: true
     instanceId: ${spring.cloud.client.hostname}:${spring.application.name}:${server.port}
 
-# Swagger/OpenAPI configuration
+# Swagger/OpenAPI configuration (Unificada sin claves duplicadas)
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -48,9 +56,6 @@ springdoc:
     enabled: true
     operations-sorter: method
     tags-sorter: alpha
-  show-actuator: false
-  # Agrupa servicios documentados
-  swagger-ui:
     urls:
       - name: Auth Service
         url: /v3/api-docs/auth-service
@@ -58,6 +63,7 @@ springdoc:
         url: /v3/api-docs/users-service
       - name: Accounts Service
         url: /v3/api-docs/accounts-service
+  show-actuator: false
 
 # Management endpoints
 management:
@@ -79,4 +85,3 @@ logging:
     com.dmh: DEBUG
     org.springframework.cloud.gateway: DEBUG
     org.springframework.web: DEBUG
-

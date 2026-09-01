@@ -16,6 +16,6 @@ public class Rol {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String nombre; // Guardará "USER", "ADMIN", etc.
+    @Column(name = "name", nullable = false, unique = true)
+    private String name; // Guardará "USER", "ADMIN", etc.
 }

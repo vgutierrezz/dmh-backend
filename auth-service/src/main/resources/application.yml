@@ -1,52 +1,26 @@
+server:
+  port: 8088
+
 spring:
   application:
     name: auth-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/dmh_users_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    username: dmh_user
+    password: dmh_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
 
-server:
-  port: 8088
+jwt:
+  # Para prod, definir JWT_SECRET en variables de entorno.
+  secret: ${JWT_SECRET:XFcDq8zqrDCdaWIBa1a4xyAcplKL3ZIm8N3jpjRQHRhPD2vA59vT+TBKm0JtuujBuI24W4RNmyMG7Scu/i4nWQ==}
+  # 24 horas en milisegundos.
+  expiration: ${JWT_EXPIRATION:86400000}
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
-  instance:
-    hostname: localhost
-    prefer-ip-address: true
-    instanceId: ${spring.cloud.client.hostname}:${spring.application.name}:${server.port}
-
-jwt:
-  secret: dmh-backend-super-secret-key-change-in-production-2024
-  expiration: 86400000 # 24 hours in milliseconds
-
-# Swagger/OpenAPI configuration
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui/index.html
-    enabled: true
-    operations-sorter: method
-    tags-sorter: alpha
-  show-actuator: false
-
-# Management endpoints
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,metrics,info,prometheus
-  endpoint:
-    health:
-      show-details: always
-  metrics:
-    tags:
-      application: ${spring.application.name}
-
-# Logging
-logging:
-  level:
-    root: INFO
-    com.dmh: DEBUG
-    org.springframework.security: DEBUG
-    org.springframework.web: DEBUG
-

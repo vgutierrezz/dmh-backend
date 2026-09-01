@@ -16,11 +16,11 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String nombre;
+    @Column(name = "first_name", nullable = false)
+    private String firstName;
 
-    @Column(nullable = false)
-    private String apellido;
+    @Column(name = "last_name", nullable = false)
+    private String lastName;
 
     @Column(nullable = false, unique = true)
     private String dni;
@@ -29,7 +29,7 @@ public class User {
     private String email;
 
     @Column(nullable = false)
-    private String telefono;
+    private String phone;
 
     @Column(nullable = false)
     private String password;
