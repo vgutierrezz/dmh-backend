@@ -2,6 +2,7 @@ package com.dmh.users.client;
 
 import com.dmh.users.dto.AccountResponse;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -13,6 +14,7 @@ public interface AccountClient {
     @PostMapping("/api/accounts/internal/create")
     AccountResponse createAccount(@RequestParam("userId") Long userId);
 
+    @GetMapping("/accounts/user/{userId}")
     AccountResponse getByUserId(@PathVariable("userId") Long userId);
 
 }
