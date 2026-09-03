@@ -2,6 +2,7 @@ package com.dmh.users.client;
 
 import com.dmh.users.dto.AccountResponse;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -11,4 +12,7 @@ public interface AccountClient {
     // Este endpoint lo crearemos en el accounts-service para inicializar la billetera
     @PostMapping("/api/accounts/internal/create")
     AccountResponse createAccount(@RequestParam("userId") Long userId);
+
+    AccountResponse getByUserId(@PathVariable("userId") Long userId);
+
 }

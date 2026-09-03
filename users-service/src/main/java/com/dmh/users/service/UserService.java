@@ -72,4 +72,11 @@ public class UserService {
                 account.getAlias()
         );
     }
+
+    public Double getBalance(Long userId) {
+        userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        AccountResponse account = accountClient.getByUserId(userId);
+        if (account == null) throw new RuntimeException("Account not found");
+        return account.getBalance();
+    }
 }

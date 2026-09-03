@@ -6,6 +6,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Optional;
+
 @RestController
 @RequestMapping("/api/accounts")
 public class AccountController {
@@ -22,4 +24,12 @@ public class AccountController {
         Account newAccount = accountService.createAccount(userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(newAccount);
     }
+
+    @GetMapping("/internal/user/{userId}")
+    public ResponseEntity<Account> getByUserId(@PathVariable("userId") Long userId) {
+        Optional<Account> acc = accountService.findByUserId(userId);
+        return acc.map(a -> ResponseEntity.ok(a))
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    }
+
 }

@@ -10,6 +10,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 
 @Service
@@ -85,5 +86,9 @@ public class AccountService {
             alias = String.format("%s.%s.%s", p1, p2, p3);
         } while (accountRepository.existsByAlias(alias)); // Si ya existe, genera otro
         return alias;
+    }
+
+    public Optional<Account> findByUserId(Long userId) {
+        return accountRepository.findByUserId(userId);
     }
 }
