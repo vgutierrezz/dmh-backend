@@ -4,6 +4,7 @@ import com.dmh.accounts.dto.AccountResponse;
 import com.dmh.accounts.dto.ActivityRequest;
 import com.dmh.accounts.dto.ActivityResponse;
 import com.dmh.accounts.exception.AccountNotFoundException;
+import com.dmh.accounts.exception.InsufficientFundsException;
 import com.dmh.accounts.exception.InvalidAmountException;
 import com.dmh.accounts.model.Account;
 import com.dmh.accounts.repository.AccountRepository;
@@ -115,33 +116,35 @@ public class AccountService {
     @Transactional
     public ActivityResponse createTransfer(Long userId, ActivityRequest transferRequest) {
         Optional<Account> accountOrigin = accountRepository.findByUserId(userId);
-        //Busco la cuenta destino
         Optional<Account> destinationAccount = accountRepository.findByCvu(transferRequest.destination());
         BigDecimal amount = transferRequest.amount().abs();
+
         if (accountOrigin.isEmpty()) {
-            throw new AccountNotFoundException(
-                    "No se encontró la cuenta de origen para el usuario " + userId
-            );
-        }
-        if (amount == null) {
-            throw new InvalidAmountException(
-                    "El monto de la transferencia es obligatorio"
-            );
-        }
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidAmountException(
-                    "El monto debe ser mayor a cero"
-            );
+            throw new AccountNotFoundException("Cuenta inexistente");
         }
 
-        //Resto el monto de la cuenta origen
+        if (destinationAccount.isEmpty()) {
+            throw new AccountNotFoundException("Cuenta inexistente");
+        }
+
+        if (amount == null) {
+            throw new InvalidAmountException("El monto de la transferencia es obligatorio");
+        }
+
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidAmountException("El monto debe ser mayor a cero");
+        }
+
+        if (accountOrigin.get().getBalance().compareTo(amount) < 0) {
+            throw new InsufficientFundsException("Fondos insuficientes");
+        }
+
         accountOrigin.get().setBalance(accountOrigin.get().getBalance().subtract(amount));
-        //Sumo el monto a la cuenta destino
         destinationAccount.get().setBalance(destinationAccount.get().getBalance().add(amount));
+
         accountRepository.save(accountOrigin.get());
         accountRepository.save(destinationAccount.get());
 
-        // Crédito
         activityService.createActivity(
                 destinationAccount.get().getId().toString(),
                 amount,
@@ -151,7 +154,6 @@ public class AccountService {
                 accountOrigin.get().getCvu()
         );
 
-        // Débito
         return activityService.createActivity(
                 accountOrigin.get().getId().toString(),
                 amount,

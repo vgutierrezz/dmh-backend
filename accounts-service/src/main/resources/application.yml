@@ -14,15 +14,7 @@ spring:
       hibernate:
         format_sql: true
 
-  # Feign configuration
-  cloud:
-    openfeign:
-      client:
-        config:
-          default:
-            connectTimeout: 5000
-            readTimeout: 10000
-            loggerLevel: basic
+
 
 server:
   port: 8082
@@ -68,3 +60,5 @@ logging:
     org.springframework.cloud.netflix.eureka: INFO
     org.springframework.web: DEBUG
 
+jwt:
+  secret: ${JWT_SECRET:XFcDq8zqrDCdaWIBa1a4xyAcplKL3ZIm8N3jpjRQHRhPD2vA59vT+TBKm0JtuujBuI24W4RNmyMG7Scu/i4nWQ==}

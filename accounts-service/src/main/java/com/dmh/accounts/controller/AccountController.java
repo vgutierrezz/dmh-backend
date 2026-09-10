@@ -54,12 +54,19 @@ public class AccountController {
     }
 
     @GetMapping("/user/{userId}/activity")
-    public List<ActivityResponse> getAccountActivity(@PathVariable Long userId) {
+    public ResponseEntity<List<ActivityResponse>> getAccountActivity(
+            @PathVariable Long userId) {
+
         Optional<Account> accountOptional = accountService.findByUserId(userId);
-        if (accountOptional.isPresent()) {
-           return activityService.findByAccountId(accountOptional.get().getId());
+
+        if (accountOptional.isEmpty()) {
+            return ResponseEntity.badRequest().build();
         }
-        return List.of(); // Retorna una lista vacía si no se encuentra la cuenta
+
+        List<ActivityResponse> activities =
+                activityService.findByAccountId(accountOptional.get().getId());
+
+        return ResponseEntity.ok(activities);
     }
 
     @GetMapping("/user/{userId}/cards")
@@ -96,5 +103,14 @@ public class AccountController {
     public ResponseEntity<ActivityResponse> createTransfer(@PathVariable Long userId, @RequestBody ActivityRequest transferRequest) {
         accountService.createTransfer(userId, transferRequest);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/activity/{activityId}")
+    public ResponseEntity<ActivityResponse> getActivity(
+            @PathVariable Long activityId) {
+
+        return ResponseEntity.ok(
+                activityService.findById(activityId)
+        );
     }
 }
