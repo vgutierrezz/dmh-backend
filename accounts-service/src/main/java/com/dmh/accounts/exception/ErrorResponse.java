@@ -1,4 +1,4 @@
-package com.dmh.accounts.exception.record;
+package com.dmh.accounts.exception;
 
 import java.time.LocalDateTime;
 

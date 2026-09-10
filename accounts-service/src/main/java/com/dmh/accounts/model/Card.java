@@ -28,8 +28,9 @@ public class Card {
     @Column(nullable = false)
     String cvc;
 
-    @Column(nullable = false)
-    Long accountId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_id", nullable = false)
+    Account account;
 
     @Column(nullable = false)
     TypeCard type;

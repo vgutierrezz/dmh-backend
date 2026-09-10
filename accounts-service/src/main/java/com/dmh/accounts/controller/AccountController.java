@@ -6,6 +6,7 @@ import com.dmh.accounts.service.AccountService;
 import com.dmh.accounts.service.ActivityService;
 import com.dmh.accounts.service.CardService;
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -71,13 +72,23 @@ public class AccountController {
     }
 
     @PostMapping("/user/{userId}/cards")
-    public List<CardResponse> createCard(@PathVariable Long userId, @RequestBody CardRequest cardRequest) {
-        return cardService.createCard(userId, cardRequest);
+    public ResponseEntity<CardResponse> createCard(
+            @PathVariable Long userId,
+            @RequestBody CardRequest cardRequest) {
+
+        CardResponse response =
+                cardService.createCard(userId, cardRequest);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(response);
     }
 
     @DeleteMapping("/user/{userId}/cards/{cardId}")
-    public ResponseEntity<Void> deleteCard(@PathVariable Long userId, @PathVariable Long cardId) {
-        cardService.deteleCard(cardId);
+    public ResponseEntity<Void> deleteCard(
+            @PathVariable Long userId,
+            @PathVariable Long cardId) {
+
+        cardService.deleteCard(userId, cardId);
         return ResponseEntity.noContent().build();
     }
 
