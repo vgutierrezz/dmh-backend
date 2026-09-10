@@ -8,8 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
@@ -26,14 +24,16 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response); // Retorna 21 Created con el payload unificado
     }
 
-    @GetMapping("/{id}/balance")
-    public ResponseEntity<?> getBalance(@PathVariable("id") Long id) {
-        try {
-            Double balance = userService.getBalance(id);
-            return ResponseEntity.ok(Map.of("balance", balance));
-        } catch (RuntimeException e) {
-            Map<String,String> err = Map.of("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(err);
-        }
+    @GetMapping("/{email:.+@.+}")
+    public UserResponse getBalanceByEmail(@PathVariable("email") String email) {
+        UserResponse u = userService.getUserByEmail(email);
+        return u;
     }
+
+    @GetMapping("/{userId:\\d+}")
+    public UserResponse getBalanceById(@PathVariable("userId") Long userId) {
+        UserResponse u = userService.getUserById(userId);
+        return u;
+    }
+
 }

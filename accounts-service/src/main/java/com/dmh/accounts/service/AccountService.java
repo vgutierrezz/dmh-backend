@@ -1,27 +1,38 @@
 package com.dmh.accounts.service;
 
+import com.dmh.accounts.dto.AccountResponse;
+import com.dmh.accounts.dto.ActivityRequest;
+import com.dmh.accounts.dto.ActivityResponse;
+import com.dmh.accounts.exception.AccountNotFoundException;
+import com.dmh.accounts.exception.InvalidAmountException;
 import com.dmh.accounts.model.Account;
 import com.dmh.accounts.repository.AccountRepository;
 import jakarta.annotation.PostConstruct;
+import jakarta.transaction.Transactional;
+import lombok.AllArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
 @Service
+@AllArgsConstructor
 public class AccountService {
 
     private final AccountRepository accountRepository;
+    private final ActivityService activityService;
+
     private final List<String> wordDictionary = new ArrayList<>();
     private final Random random = new Random();
 
-    public AccountService(AccountRepository accountRepository) {
-        this.accountRepository = accountRepository;
+    public List<Account> findAll() {
+        return accountRepository.findAll();
     }
 
     // Carga el archivo aliases.txt en memoria al iniciar el servicio
@@ -40,16 +51,24 @@ public class AccountService {
         }
     }
 
-    public Account createAccount(Long userId) {
+    public AccountResponse createAccount(Long userId) {
         Account account = new Account();
         account.setUserId(userId);
-        account.setBalance(0.0); // Inicializa con saldo en cero
+        account.setBalance(BigDecimal.ZERO); // Inicializa con saldo en cero
 
         // Generar CVU y Alias únicos asegurando que no colisionen en la base de datos
         account.setCvu(generateUniqueCvu());
         account.setAlias(generateUniqueAlias());
 
-        return accountRepository.save(account);
+        Account savedAccount = accountRepository.save(account);
+        return new AccountResponse(
+                String.valueOf(savedAccount.getId()),
+                String.valueOf(savedAccount.getUserId()),
+                savedAccount.getBalance(),
+                savedAccount.getCvu(),
+                savedAccount.getAlias()
+        );
+
     }
 
     // Algoritmo para generar un CVU aleatorio de 22 dígitos
@@ -91,4 +110,56 @@ public class AccountService {
     public Optional<Account> findByUserId(Long userId) {
         return accountRepository.findByUserId(userId);
     }
+
+
+    @Transactional
+    public ActivityResponse createTransfer(Long userId, ActivityRequest transferRequest) {
+        Optional<Account> accountOrigin = accountRepository.findByUserId(userId);
+        //Busco la cuenta destino
+        Optional<Account> destinationAccount = accountRepository.findByCvu(transferRequest.destination());
+        BigDecimal amount = transferRequest.amount().abs();
+        if (accountOrigin.isEmpty()) {
+            throw new AccountNotFoundException(
+                    "No se encontró la cuenta de origen para el usuario " + userId
+            );
+        }
+        if (amount == null) {
+            throw new InvalidAmountException(
+                    "El monto de la transferencia es obligatorio"
+            );
+        }
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidAmountException(
+                    "El monto debe ser mayor a cero"
+            );
+        }
+
+        //Resto el monto de la cuenta origen
+        accountOrigin.get().setBalance(accountOrigin.get().getBalance().subtract(amount));
+        //Sumo el monto a la cuenta destino
+        destinationAccount.get().setBalance(destinationAccount.get().getBalance().add(amount));
+        accountRepository.save(accountOrigin.get());
+        accountRepository.save(destinationAccount.get());
+
+        // Crédito
+        activityService.createActivity(
+                destinationAccount.get().getId().toString(),
+                amount,
+                accountOrigin.get().getId(),
+                "CREDIT",
+                transferRequest.type(),
+                accountOrigin.get().getCvu()
+        );
+
+        // Débito
+        return activityService.createActivity(
+                accountOrigin.get().getId().toString(),
+                amount,
+                destinationAccount.get().getId(),
+                "DEBIT",
+                transferRequest.type(),
+                transferRequest.destination()
+        );
+    }
+
 }

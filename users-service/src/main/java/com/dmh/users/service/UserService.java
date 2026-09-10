@@ -54,11 +54,13 @@ public class UserService {
         });
         user.setRole(defaultRole);
 
-        // 3. Save user in users_db
         User savedUser = userRepository.save(user);
 
-        // 4. Synchronous call via Feign to generate the digital account in accounts_db
+        System.out.println("Usuario guardado: " + savedUser.getId());
+
         AccountResponse account = accountClient.createAccount(savedUser.getId());
+
+        System.out.println("Cuenta creada: " + account);
 
         // 5. Build and return unified response payload
         return new UserResponse(
@@ -67,16 +69,31 @@ public class UserService {
                 savedUser.getLastName(),
                 savedUser.getDni(),
                 savedUser.getEmail(),
-                savedUser.getPhone(),
-                account.getCvu(),
-                account.getAlias()
+                savedUser.getPhone()
         );
     }
 
-    public Double getBalance(Long userId) {
-        userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
-        AccountResponse account = accountClient.getByUserId(userId);
-        if (account == null) throw new RuntimeException("Account not found");
-        return account.getBalance();
+    public UserResponse getUserByEmail(String email) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+        return new UserResponse(
+                user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getDni(),
+                user.getEmail(),
+                user.getPhone()
+        );
+    }
+
+    public UserResponse getUserById(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        return new UserResponse(
+                user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getDni(),
+                user.getEmail(),
+                user.getPhone()
+        );
     }
 }

@@ -14,7 +14,6 @@ public interface AccountClient {
     @PostMapping("/api/accounts/internal/create")
     AccountResponse createAccount(@RequestParam("userId") Long userId);
 
-    @GetMapping("/accounts/user/{userId}")
+    @GetMapping("/api/accounts/internal/user/{userId}")
     AccountResponse getByUserId(@PathVariable("userId") Long userId);
-
 }

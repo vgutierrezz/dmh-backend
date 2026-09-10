@@ -1,35 +1,89 @@
 package com.dmh.accounts.controller;
 
+import com.dmh.accounts.dto.*;
 import com.dmh.accounts.model.Account;
 import com.dmh.accounts.service.AccountService;
-import org.springframework.http.HttpStatus;
+import com.dmh.accounts.service.ActivityService;
+import com.dmh.accounts.service.CardService;
+import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Optional;
 
 @RestController
+@AllArgsConstructor
 @RequestMapping("/api/accounts")
 public class AccountController {
 
     private final AccountService accountService;
+    private final ActivityService activityService;
+    private final CardService cardService;
 
-    public AccountController(AccountService accountService) {
-        this.accountService = accountService;
-    }
-
-    // Endpoint consumido por el cliente Feign de users-service
     @PostMapping("/internal/create")
-    public ResponseEntity<Account> createAccount(@RequestParam("userId") Long userId) {
-        Account newAccount = accountService.createAccount(userId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(newAccount);
+    public AccountResponse createAccount(@RequestParam Long userId) {
+        return accountService.createAccount(userId);
     }
 
-    @GetMapping("/internal/user/{userId}")
-    public ResponseEntity<Account> getByUserId(@PathVariable("userId") Long userId) {
-        Optional<Account> acc = accountService.findByUserId(userId);
-        return acc.map(a -> ResponseEntity.ok(a))
-                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    @GetMapping()
+    public List<AccountResponse> getAll() {
+        return accountService.findAll().stream()
+                .map(acc -> new AccountResponse(
+                        String.valueOf(acc.getId()),
+                        String.valueOf(acc.getUserId()),
+                        acc.getBalance(),
+                        acc.getCvu(),
+                        acc.getAlias()
+                ))
+                .toList();
     }
 
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<AccountResponse> getByUserId(@PathVariable Long userId) {
+        return accountService.findByUserId(userId)
+                .map(acc -> ResponseEntity.ok(new AccountResponse(
+                        String.valueOf(acc.getId()),
+                        String.valueOf(acc.getUserId()),
+                        acc.getBalance(),
+                        acc.getCvu(),
+                        acc.getAlias()
+                )))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/user/{userId}/activity")
+    public List<ActivityResponse> getAccountActivity(@PathVariable Long userId) {
+        Optional<Account> accountOptional = accountService.findByUserId(userId);
+        if (accountOptional.isPresent()) {
+           return activityService.findByAccountId(accountOptional.get().getId());
+        }
+        return List.of(); // Retorna una lista vacía si no se encuentra la cuenta
+    }
+
+    @GetMapping("/user/{userId}/cards")
+    public List<CardResponse> getCardsByUserId(@PathVariable Long userId) {
+        List<CardResponse> cards = cardService.getCardsByUserId(userId);
+        if (cards.isEmpty()) {
+            return List.of(); // Retorna una lista vacía si no se encuentran tarjetas
+        }
+        return cards;
+    }
+
+    @PostMapping("/user/{userId}/cards")
+    public List<CardResponse> createCard(@PathVariable Long userId, @RequestBody CardRequest cardRequest) {
+        return cardService.createCard(userId, cardRequest);
+    }
+
+    @DeleteMapping("/user/{userId}/cards/{cardId}")
+    public ResponseEntity<Void> deleteCard(@PathVariable Long userId, @PathVariable Long cardId) {
+        cardService.deteleCard(cardId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/user/{userId}/transfers")
+    public ResponseEntity<ActivityResponse> createTransfer(@PathVariable Long userId, @RequestBody ActivityRequest transferRequest) {
+        accountService.createTransfer(userId, transferRequest);
+        return ResponseEntity.ok().build();
+    }
 }

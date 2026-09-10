@@ -14,6 +14,4 @@ public class UserResponse {
     private String dni;
     private String email;
     private String phone;
-    private String cvu;   // Proveniente del accounts-service vía Feign
-    private String alias; // Proveniente del accounts-service vía Feign
 }

@@ -4,6 +4,7 @@ import com.dmh.accounts.model.Account;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -14,4 +15,8 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
     // Método útil para buscar la cuenta por el ID de usuario más adelante
     Optional<Account> findByUserId(Long userId);
+    Optional<Account> findByCvu(String cvu);
+
+    List<Account> findAll();
+
 }
