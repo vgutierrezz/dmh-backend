@@ -8,28 +8,26 @@ import com.dmh.users.model.Rol;
 import com.dmh.users.model.User;
 import com.dmh.users.repository.RolRepository;
 import com.dmh.users.repository.UserRepository;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@AllArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
     private final RolRepository rolRepository;
     private final AccountClient accountClient;
-    private final BCryptPasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, RolRepository rolRepository, AccountClient accountClient) {
-        this.userRepository = userRepository;
-        this.rolRepository = rolRepository;
-        this.accountClient = accountClient;
-        this.passwordEncoder = new BCryptPasswordEncoder();
-    }
+    private final Logger log = LoggerFactory.getLogger(UserService.class);
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public UserResponse registerUser(UserRegisterRequest request) {
-        // 1. Validate uniqueness of Email and DNI
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("El email ya se encuentra registrado");
         }
@@ -37,7 +35,6 @@ public class UserService {
             throw new IllegalArgumentException("El DNI ya se encuentra registrado");
         }
 
-        // 2. Map DTO to User Entity and encode password with BCrypt
         User user = new User();
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
@@ -46,7 +43,6 @@ public class UserService {
         user.setPhone(request.getPhone());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
-        // Assign default "USER" role: fetch from DB or create if missing
         Rol defaultRole = rolRepository.findByName("USER").orElseGet(() -> {
             Rol r = new Rol();
             r.setName("USER");
@@ -56,13 +52,15 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
 
-        System.out.println("Usuario guardado: " + savedUser.getId());
+        try {
+            AccountResponse account = accountClient.createAccount(savedUser.getId());
+            log.info("Cuenta creada para usuario {}: {}", savedUser.getId(), account);
+        } catch (Exception e) {
+            log.error("Error al crear la cuenta para el usuario {}. Se hace rollback del registro.", savedUser.getId(), e);
+            throw new IllegalStateException("No se pudo completar el registro del usuario: error al crear la cuenta", e);
+        }
 
-        AccountResponse account = accountClient.createAccount(savedUser.getId());
-
-        System.out.println("Cuenta creada: " + account);
-
-        // 5. Build and return unified response payload
+        log.info("Usuario registrado correctamente: {}", savedUser.getId());
         return new UserResponse(
                 savedUser.getId(),
                 savedUser.getFirstName(),
