@@ -61,6 +61,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- RestAssured para API tests -->
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Selenium para Testing -->
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
