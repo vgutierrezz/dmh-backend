@@ -53,6 +53,13 @@ public class AccountController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PatchMapping("/{id}")
+    public ResponseEntity<AccountResponse> updateAlias(
+            @PathVariable Long id,
+            @RequestBody AliasUpdateRequest request) {
+        return ResponseEntity.ok(accountService.updateAlias(id, request));
+    }
+
     @GetMapping("/user/{userId}/activity")
     public ResponseEntity<List<ActivityResponse>> getAccountActivity(
             @PathVariable Long userId) {
@@ -73,7 +80,7 @@ public class AccountController {
     public List<CardResponse> getCardsByUserId(@PathVariable Long userId) {
         List<CardResponse> cards = cardService.getCardsByUserId(userId);
         if (cards.isEmpty()) {
-            return List.of(); // Retorna una lista vacía si no se encuentran tarjetas
+            return List.of();
         }
         return cards;
     }

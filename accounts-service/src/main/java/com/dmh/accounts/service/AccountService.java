@@ -2,8 +2,9 @@ package com.dmh.accounts.service;
 
 import com.dmh.accounts.dto.AccountResponse;
 import com.dmh.accounts.dto.ActivityRequest;
-import com.dmh.accounts.dto.ActivityResponse;
+import com.dmh.accounts.dto.AliasUpdateRequest;
 import com.dmh.accounts.exception.AccountNotFoundException;
+import com.dmh.accounts.exception.AliasAlreadyExistsException;
 import com.dmh.accounts.exception.InsufficientFundsException;
 import com.dmh.accounts.exception.InvalidAmountException;
 import com.dmh.accounts.model.Account;
@@ -17,10 +18,7 @@ import org.springframework.stereotype.Service;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 
 @Service
 @AllArgsConstructor
@@ -36,7 +34,6 @@ public class AccountService {
         return accountRepository.findAll();
     }
 
-    // Carga el archivo aliases.txt en memoria al iniciar el servicio
     @PostConstruct
     public void loadDictionary() {
         try (BufferedReader br = new BufferedReader(
@@ -55,9 +52,8 @@ public class AccountService {
     public AccountResponse createAccount(Long userId) {
         Account account = new Account();
         account.setUserId(userId);
-        account.setBalance(BigDecimal.ZERO); // Inicializa con saldo en cero
+        account.setBalance(BigDecimal.ZERO);
 
-        // Generar CVU y Alias únicos asegurando que no colisionen en la base de datos
         account.setCvu(generateUniqueCvu());
         account.setAlias(generateUniqueAlias());
 
@@ -69,25 +65,21 @@ public class AccountService {
                 savedAccount.getCvu(),
                 savedAccount.getAlias()
         );
-
     }
 
-    // Algoritmo para generar un CVU aleatorio de 22 dígitos
     private String generateUniqueCvu() {
         String cvu;
         do {
             StringBuilder sb = new StringBuilder();
-            // Los primeros dígitos en Argentina suelen identificar al banco/proveedor, el resto es la cuenta
-            sb.append("000000"); // Prefijo fijo simulado de PSP digital
+            sb.append("000000");
             for (int i = 0; i < 16; i++) {
                 sb.append(random.nextInt(10));
             }
             cvu = sb.toString();
-        } while (accountRepository.existsByCvu(cvu)); // Si ya existe, genera otro
+        } while (accountRepository.existsByCvu(cvu));
         return cvu;
     }
 
-    // Algoritmo para generar un Alias aleatorio de 3 palabras (palabra1.palabra2.palabra3)
     private String generateUniqueAlias() {
         if (wordDictionary.size() < 3) {
             throw new IllegalStateException("Dictionary does not have enough words to generate an alias");
@@ -99,12 +91,11 @@ public class AccountService {
             String p2 = wordDictionary.get(random.nextInt(wordDictionary.size()));
             String p3 = wordDictionary.get(random.nextInt(wordDictionary.size()));
 
-            // Asegurar que las 3 palabras sean distintas para que quede más prolijo
             while (p1.equals(p2)) p2 = wordDictionary.get(random.nextInt(wordDictionary.size()));
             while (p3.equals(p1) || p3.equals(p2)) p3 = wordDictionary.get(random.nextInt(wordDictionary.size()));
 
             alias = String.format("%s.%s.%s", p1, p2, p3);
-        } while (accountRepository.existsByAlias(alias)); // Si ya existe, genera otro
+        } while (accountRepository.existsByAlias(alias));
         return alias;
     }
 
@@ -112,12 +103,43 @@ public class AccountService {
         return accountRepository.findByUserId(userId);
     }
 
+    @Transactional
+    public AccountResponse updateAlias(Long accountOrUserId, AliasUpdateRequest request) {
+        if (request == null || request.alias() == null || request.alias().isBlank()) {
+            throw new IllegalArgumentException("El alias es obligatorio");
+        }
+
+        String alias = normalizeAlias(request.alias());
+
+        Account account = accountRepository.findByUserId(accountOrUserId)
+                .or(() -> accountRepository.findById(accountOrUserId))
+                .orElseThrow(() -> new AccountNotFoundException("Cuenta inexistente"));
+
+        if (accountRepository.existsByAliasIgnoreCaseAndIdNot(alias, account.getId())) {
+            throw new AliasAlreadyExistsException(alias);
+        }
+
+        account.setAlias(alias);
+        Account updated = accountRepository.save(account);
+
+        return new AccountResponse(
+                String.valueOf(updated.getId()),
+                String.valueOf(updated.getUserId()),
+                updated.getBalance(),
+                updated.getCvu(),
+                updated.getAlias()
+        );
+    }
+
+    private String normalizeAlias(String alias) {
+        return alias.trim().toLowerCase(Locale.ROOT);
+    }
 
     @Transactional
-    public ActivityResponse createTransfer(Long userId, ActivityRequest transferRequest) {
+    public void createTransfer(Long userId, ActivityRequest transferRequest) {
         Optional<Account> accountOrigin = accountRepository.findByUserId(userId);
         Optional<Account> destinationAccount = accountRepository.findByCvu(transferRequest.destination());
-        BigDecimal amount = transferRequest.amount().abs();
+        BigDecimal amount = resolveAmount(transferRequest);
 
         if (accountOrigin.isEmpty()) {
             throw new AccountNotFoundException("Cuenta inexistente");
@@ -125,10 +147,6 @@ public class AccountService {
 
         if (destinationAccount.isEmpty()) {
             throw new AccountNotFoundException("Cuenta inexistente");
-        }
-
-        if (amount == null) {
-            throw new InvalidAmountException("El monto de la transferencia es obligatorio");
         }
 
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -153,15 +171,11 @@ public class AccountService {
                 transferRequest.type(),
                 accountOrigin.get().getCvu()
         );
-
-        return activityService.createActivity(
-                accountOrigin.get().getId().toString(),
-                amount,
-                destinationAccount.get().getId(),
-                "DEBIT",
-                transferRequest.type(),
-                transferRequest.destination()
-        );
     }
-
+    private BigDecimal resolveAmount(ActivityRequest transferRequest) {
+        if (transferRequest.amount() == null) {
+            throw new InvalidAmountException("El monto de la transferencia es obligatorio");
+        }
+        return transferRequest.amount().abs();
+    }
 }

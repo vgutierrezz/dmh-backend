@@ -12,8 +12,8 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     // Métodos de verificación para asegurar la unicidad de los algoritmos
     boolean existsByCvu(String cvu);
     boolean existsByAlias(String alias);
+    boolean existsByAliasIgnoreCaseAndIdNot(String alias, Long id);
 
-    // Método útil para buscar la cuenta por el ID de usuario más adelante
     Optional<Account> findByUserId(Long userId);
     Optional<Account> findByCvu(String cvu);
 
