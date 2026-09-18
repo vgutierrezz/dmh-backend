@@ -25,15 +25,11 @@ spring:
           uri: lb://USERS-SERVICE
           predicates:
             - Path=/api/users/**
-          # filters:
-          #   - AuthenticationFilter # Descomentar cuando la clase Java esté creada en el Sprint 2
 
         - id: accounts-service
           uri: lb://ACCOUNTS-SERVICE
           predicates:
             - Path=/api/accounts/**
-          # filters:
-          #   - AuthenticationFilter
 
 server:
   port: 8080

@@ -1,6 +1,7 @@
 package com.dmh.users.service;
 
 import com.dmh.users.client.AccountClient;
+import com.dmh.users.client.AuthClient;
 import com.dmh.users.dto.AccountResponse;
 import com.dmh.users.dto.UserRegisterRequest;
 import com.dmh.users.dto.UserResponse;
@@ -15,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+
 @Service
 @AllArgsConstructor
 public class UserService {
@@ -22,12 +25,32 @@ public class UserService {
     private final UserRepository userRepository;
     private final RolRepository rolRepository;
     private final AccountClient accountClient;
+    private final AuthClient authClient;
     private final PasswordEncoder passwordEncoder;
 
     private final Logger log = LoggerFactory.getLogger(UserService.class);
 
-    @Transactional(rollbackFor = Exception.class)
     public UserResponse registerUser(UserRegisterRequest request) {
+        UserResponse response = createUserAndAccount(request);
+
+        Map<String, String> credentials = Map.of(
+                "email", response.getEmail(),
+                "password", request.getPassword()
+        );
+
+        Map<String, String> authResponse = authClient.login(credentials);
+        String token = authResponse.get("token");
+        if (token == null || token.isBlank()) {
+            throw new IllegalStateException("No se pudo generar el token para el usuario registrado");
+        }
+
+        response.setToken(token);
+        response.setAccessToken(token);
+        return response;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    protected UserResponse createUserAndAccount(UserRegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("El email ya se encuentra registrado");
         }
@@ -52,15 +75,11 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
 
-        try {
-            AccountResponse account = accountClient.createAccount(savedUser.getId());
-            log.info("Cuenta creada para usuario {}: {}", savedUser.getId(), account);
-        } catch (Exception e) {
-            log.error("Error al crear la cuenta para el usuario {}. Se hace rollback del registro.", savedUser.getId(), e);
-            throw new IllegalStateException("No se pudo completar el registro del usuario: error al crear la cuenta", e);
-        }
+        AccountResponse account = accountClient.createAccount(savedUser.getId());
+        log.info("Cuenta creada para usuario {}: {}", savedUser.getId(), account);
 
         log.info("Usuario registrado correctamente: {}", savedUser.getId());
+
         return new UserResponse(
                 savedUser.getId(),
                 savedUser.getFirstName(),
