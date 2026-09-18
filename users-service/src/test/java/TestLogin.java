@@ -38,7 +38,6 @@ public class TestLogin {
     @AfterEach
     void tearDown() { if (driver != null) driver.quit(); }
 
-
     @DisplayName("CP-LOG-001 - Login con credenciales válidas")
     @Order(1)
     @Test
