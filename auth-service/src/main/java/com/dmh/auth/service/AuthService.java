@@ -7,21 +7,18 @@ import com.dmh.auth.exception.InvalidPasswordException;
 import com.dmh.auth.exception.UserNotFoundException;
 import com.dmh.auth.model.UserAuth;
 import com.dmh.auth.repository.AuthRepository;
+import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
+@AllArgsConstructor
 public class AuthService {
 
     private final AuthRepository authRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
-
-    public AuthService(AuthRepository authRepository, PasswordEncoder passwordEncoder, JwtProvider jwtProvider) {
-        this.authRepository = authRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtProvider = jwtProvider;
-    }
+    private final RevokedTokenService revokedTokenService;
 
     public AuthResponse login(AuthRequest request) {
         UserAuth user = authRepository.findByEmail(request.getEmail())
@@ -36,7 +33,9 @@ public class AuthService {
     }
 
     public void logout(String authorizationHeader) {
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+
+        if (authorizationHeader == null ||
+                !authorizationHeader.startsWith("Bearer ")) {
             throw new IllegalArgumentException("Token requerido");
         }
 
@@ -45,5 +44,7 @@ public class AuthService {
         if (!jwtProvider.validateToken(token)) {
             throw new IllegalArgumentException("Token inválido");
         }
+
+        revokedTokenService.revokeToken(token);
     }
 }
