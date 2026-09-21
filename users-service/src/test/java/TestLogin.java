@@ -41,12 +41,36 @@ public class TestLogin {
     @DisplayName("CP-LOG-001 - Login con credenciales válidas")
     @Order(1)
     @Test
-    public void shouldReturnToken_whenCredentialsAreValid() {
-        driver.get("http://localhost:3000/login");
-        driver.findElement(By.id("outlined-adornment-email")).sendKeys("valentina@test.com");
-        driver.findElement(By.id("outlined-adornment-password")).sendKeys("Valen1234");
-        wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//button[normalize-space()='Ingresar']"))).click();
-   }
+    void shouldAuthenticateUser_whenCredentialsAreValid() {
+        openLoginPage();
+
+        completeLoginForm(
+                "valentina@test.com",
+                "Valen1234"
+        );
+
+        submitLogin();
+
+        try {
+            wait.until(
+                    ExpectedConditions.not(
+                            ExpectedConditions.urlContains("/login")
+                    )
+            );
+
+            assertFalse(
+                    driver.getCurrentUrl().contains("/login"),
+                    "El usuario debería salir de la pantalla de login"
+            );
+        } catch (TimeoutException exception) {
+            saveScreenshot("login-valid-credentials-failure");
+
+            fail(
+                    "El login no produjo la navegación esperada. URL actual: "
+                            + driver.getCurrentUrl()
+            );
+        }
+    }
 
     @DisplayName("CP-LOG-002 - Usuario inexistente")
     @Order(2)
@@ -197,4 +221,77 @@ public class TestLogin {
         }
     }
 
+    private static final String LOGIN_URL = "http://localhost:3000/login";
+
+    private WebElement waitForVisible(By locator) {
+        return wait.until(
+                ExpectedConditions.visibilityOfElementLocated(locator)
+        );
+    }
+
+    private void openLoginPage() {
+        driver.get(LOGIN_URL);
+
+        wait.until(ExpectedConditions.urlContains("/login"));
+
+        waitForVisible(By.id("outlined-adornment-email"));
+        waitForVisible(By.id("outlined-adornment-password"));
+    }
+
+    private void completeLoginForm(String email, String password) {
+        WebElement emailInput = waitForVisible(
+                By.id("outlined-adornment-email")
+        );
+
+        WebElement passwordInput = waitForVisible(
+                By.id("outlined-adornment-password")
+        );
+
+        emailInput.clear();
+        emailInput.sendKeys(email);
+
+        passwordInput.clear();
+        passwordInput.sendKeys(password);
+    }
+
+    private void submitLogin() {
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//form//button[normalize-space()='Ingresar']")
+        )).click();
+    }
+
+    private void saveScreenshot(String filePrefix) {
+        try {
+            File screenshot = ((TakesScreenshot) driver)
+                    .getScreenshotAs(OutputType.FILE);
+
+            java.nio.file.Path destination =
+                    java.nio.file.Paths.get(
+                            "target",
+                            "screenshots",
+                            filePrefix + "-"
+                                    + java.util.UUID.randomUUID()
+                                    + ".png"
+                    );
+
+            java.nio.file.Files.createDirectories(
+                    destination.getParent()
+            );
+
+            java.nio.file.Files.copy(
+                    screenshot.toPath(),
+                    destination
+            );
+
+            System.out.println(
+                    "Screenshot saved to: "
+                            + destination.toAbsolutePath()
+            );
+        } catch (Exception exception) {
+            System.out.println(
+                    "Failed to save screenshot: "
+                            + exception.getMessage()
+            );
+        }
+    }
 }

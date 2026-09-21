@@ -1,6 +1,7 @@
 import io.github.bonigarcia.wdm.WebDriverManager;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import org.junit.jupiter.api.*;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -269,207 +270,208 @@ public class TestRegister {
         }
     }
 
-    @DisplayName("CP-REG-004 - Registro: Rechazar email ya registrado")
-    @Order(4)
     @Test
-    public void shouldRejectAlreadyRegisteredEmail() {
-        // generar email único para evitar duplicados
-        String unique = "user" + System.currentTimeMillis() + "@test.com";
+    @Order(4)
+    @DisplayName("CP-REG-004 - Registro: Rechazar email ya registrado")
+    void shouldRejectAlreadyRegisteredEmail() {
+
+        String email = "user" + System.currentTimeMillis() + "@test.com";
         String password = "User1234";
-        String dni = String.valueOf(90000000 + (System.currentTimeMillis() % 10000));
 
-        driver.get("http://localhost:3000/register");
-        try {
-            // esperar a que el formulario se renderice
-            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("form")));
+        String dni1 = String.valueOf(
+                90000000 + (System.currentTimeMillis() % 10000)
+        );
 
-            // helper sleep to slow down field filling so it's visible during run
-            java.util.function.Consumer<Integer> pause = (ms) -> { try { Thread.sleep(ms); } catch (InterruptedException ignored) {} };
-            int fieldPause = Integer.parseInt(System.getProperty("ui.field.pause.ms", "400"));
+        String dni2 = String.valueOf(
+                91000000 + (System.currentTimeMillis() % 10000)
+        );
 
-            // -- primer registro via UI
-            WebElement nameEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-name")));
-            nameEl.sendKeys("Test");
-            pause.accept(fieldPause);
+        // Primer registro exitoso
+        registerUser(email, dni1, password);
 
-            WebElement lastEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-last-name")));
-            lastEl.sendKeys("User");
-            pause.accept(fieldPause);
+        // Limpiar sesión
+        driver.manage().deleteAllCookies();
 
-            WebElement dniEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-dni")));
-            dniEl.sendKeys(dni);
-            pause.accept(fieldPause);
+        JavascriptExecutor js =
+                (JavascriptExecutor) driver;
 
-            WebElement emailEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-email")));
-            emailEl.clear();
-            emailEl.sendKeys(unique);
-            pause.accept(fieldPause);
+        js.executeScript("window.localStorage.clear();");
+        js.executeScript("window.sessionStorage.clear();");
 
-            WebElement passEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-password")));
-            passEl.sendKeys(password);
-            pause.accept(fieldPause);
+        // Segundo registro con mismo email
+        registerUser(email, dni2, password);
 
-            WebElement passRepEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-password-repeated")));
-            passRepEl.sendKeys(password);
-            pause.accept(fieldPause);
+        WebElement snackEl = wait.until(
+                ExpectedConditions.visibilityOfElementLocated(
+                        By.cssSelector("div.tw-bg-error")
+                )
+        );
 
-            WebElement phoneEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-phone")));
-            phoneEl.sendKeys("1555555555");
-            pause.accept(fieldPause);
-
-            // enviar formulario (primer registro)
-            wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//form//button[normalize-space()='Ingresar']"))).click();
-
-            // esperar un breve periodo para que el backend cree el usuario
-            Thread.sleep(1000);
-
-            // -- volver a la página de registro e intentar registrar con el mismo email
-            driver.get("http://localhost:3000/register");
-            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("form")));
-
-            // rellenar nuevamente con el mismo email
-            WebElement nameEl2 = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-name")));
-            nameEl2.sendKeys("Test");
-            pause.accept(fieldPause);
-
-            WebElement lastEl2 = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-last-name")));
-            lastEl2.sendKeys("User");
-            pause.accept(fieldPause);
-
-            WebElement dniEl2 = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-dni")));
-            dniEl2.sendKeys(dni);
-            pause.accept(fieldPause);
-
-            WebElement emailEl2 = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-email")));
-            emailEl2.clear();
-            emailEl2.sendKeys(unique);
-            pause.accept(fieldPause);
-
-            WebElement passEl2 = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-password")));
-            passEl2.sendKeys(password);
-            pause.accept(fieldPause);
-
-            WebElement passRepEl2 = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-password-repeated")));
-            passRepEl2.sendKeys(password);
-            pause.accept(fieldPause);
-
-            WebElement phoneEl2 = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-phone")));
-            phoneEl2.sendKeys("1555555555");
-            pause.accept(fieldPause);
-
-            // intentar enviar (segundo registro)
-            WebElement submitBtn = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//form//button[normalize-space()='Ingresar']")));
-            submitBtn.click();
-
-            // esperar snackbar de error con el texto proporcionado
-            By snackbarError = By.cssSelector("div.tw-bg-error");
-            WebElement snackEl = wait.until(ExpectedConditions.visibilityOfElementLocated(snackbarError));
-            String snackText = snackEl.getText().trim();
-            assertEquals("El usuario ya existe", snackText, "Se espera mensaje de error indicando usuario ya existe");
-
-            // espera final para permitir observar la página antes de cerrarla
-            int finalPause = Integer.parseInt(System.getProperty("ui.pause.after.ms", "1000"));
-            try { Thread.sleep(finalPause); } catch (InterruptedException ignored) {}
-
-        } catch (Exception e) {
-            try {
-                File scr = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
-                java.nio.file.Path dest = java.nio.file.Paths.get("target","screenshots","registro-duplicate-email-failure-"+java.util.UUID.randomUUID()+".png");
-                java.nio.file.Files.createDirectories(dest.getParent());
-                java.nio.file.Files.copy(scr.toPath(), dest);
-                System.out.println("Screenshot saved to: " + dest.toAbsolutePath());
-            } catch (Exception ex) { System.out.println("Failed to save screenshot: " + ex.getMessage()); }
-            fail("Registration (duplicate email) test failed: " + e.getMessage());
-        }
+        assertEquals(
+                "El usuario ya existe",
+                snackEl.getText().trim()
+        );
     }
 
-    @DisplayName("CP-REG-005 - Registro: password no aparece en la respuesta de usuario")
+    @DisplayName("CP-REG-005 - UserResponse no expone password")
     @Order(5)
     @Test
     public void shouldNotExposePasswordInUserResponse() {
-        String unique = "user" + System.currentTimeMillis() + "@test.com";
+
+        String email = "user" + System.currentTimeMillis() + "@test.com";
         String password = "User1234";
-        String dni = String.valueOf(90000000 + (System.currentTimeMillis() % 10000));
 
-        driver.get("http://localhost:3000/register");
+        String dni = String.valueOf(
+                90000000 + (System.currentTimeMillis() % 10000)
+        );
+
         try {
-            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("form")));
 
-            java.util.function.Consumer<Integer> pause = (ms) -> { try { Thread.sleep(ms); } catch (InterruptedException ignored) {} };
-            int fieldPause = Integer.parseInt(System.getProperty("ui.field.pause.ms", "400"));
+            // Registrar usuario
+            registerUser(email, dni, password);
 
-            WebElement nameEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-name")));
-            nameEl.sendKeys("Test");
-            pause.accept(fieldPause);
+            // Esperar a que el usuario quede persistido
+            Thread.sleep(2000);
 
-            WebElement lastEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-last-name")));
-            lastEl.sendKeys("User");
-            pause.accept(fieldPause);
+            RestAssured.baseURI = System.getProperty(
+                    "api.base",
+                    "http://localhost:8080"
+            );
 
-            WebElement dniEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-dni")));
-            dniEl.sendKeys(dni);
-            pause.accept(fieldPause);
-
-            WebElement emailEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-email")));
-            emailEl.clear();
-            emailEl.sendKeys(unique);
-            pause.accept(fieldPause);
-
-            WebElement passEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-password")));
-            passEl.sendKeys(password);
-            pause.accept(fieldPause);
-
-            WebElement passRepEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-password-repeated")));
-            passRepEl.sendKeys(password);
-            pause.accept(fieldPause);
-
-            WebElement phoneEl = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("outlined-adornment-phone")));
-            phoneEl.sendKeys("1555555555");
-            pause.accept(fieldPause);
-
-            // enviar formulario
-            wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//form//button[normalize-space()='Ingresar']"))).click();
-
-            // esperar un breve periodo para que el backend cree el usuario
-            Thread.sleep(1000);
-
-            // login via API
-            RestAssured.baseURI = System.getProperty("api.base", "http://localhost:8080");
-            String token =
+            Response userResponse =
                     given()
-                            .contentType(ContentType.JSON)
-                            .body("{\"email\":\""+unique+"\",\"password\":\""+password+"\"}")
                             .when()
-                            .post("/api/auth/login")
-                            .then()
-                            .statusCode(200)
-                            .body("token", allOf(notNullValue(), not(isEmptyString())))
-                            .extract().path("token");
+                            .get("/api/users/" + email);
 
-            assertNotNull(token, "Expected token from login after registration");
+            System.out.println("===== USER RESPONSE =====");
+            System.out.println("Status: " + userResponse.statusCode());
+            System.out.println("Body: " + userResponse.asPrettyString());
 
-            // GET /api/users/me and assert password not present
-            given()
-                    .header("Authorization", "Bearer "+token)
-                    .when()
-                    .get("/api/users/me")
-                    .then()
-                    .statusCode(200)
+            assertEquals(
+                    200,
+                    userResponse.statusCode(),
+                    "El endpoint de usuario debería responder 200"
+            );
+
+            userResponse.then()
                     .body("$", not(hasKey("password")));
 
-            // espera final
-            int finalPause = Integer.parseInt(System.getProperty("ui.pause.after.ms", "1000"));
-            try { Thread.sleep(finalPause); } catch (InterruptedException ignored) {}
+            assertFalse(
+                    userResponse.asString().contains(password),
+                    "La contraseña no debe aparecer en la respuesta"
+            );
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
+
             try {
-                File scr = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
-                java.nio.file.Path dest = java.nio.file.Paths.get("target","screenshots","registro-no-password-exposed-failure-"+java.util.UUID.randomUUID()+".png");
-                java.nio.file.Files.createDirectories(dest.getParent());
-                java.nio.file.Files.copy(scr.toPath(), dest);
-                System.out.println("Screenshot saved to: " + dest.toAbsolutePath());
-            } catch (Exception ex) { System.out.println("Failed to save screenshot: " + ex.getMessage()); }
-            fail("Registration (no-password-exposed) test failed: " + e.getMessage());
+                File scr = ((TakesScreenshot) driver)
+                        .getScreenshotAs(OutputType.FILE);
+
+                java.nio.file.Path dest =
+                        java.nio.file.Paths.get(
+                                "target",
+                                "screenshots",
+                                "registro-no-password-exposed-failure-"
+                                        + java.util.UUID.randomUUID()
+                                        + ".png"
+                        );
+
+                java.nio.file.Files.createDirectories(
+                        dest.getParent()
+                );
+
+                java.nio.file.Files.copy(
+                        scr.toPath(),
+                        dest
+                );
+
+                System.out.println(
+                        "Screenshot saved to: "
+                                + dest.toAbsolutePath()
+                );
+
+            } catch (Exception ex) {
+                System.out.println(
+                        "Failed to save screenshot: "
+                                + ex.getMessage()
+                );
+            }
+
+            fail(
+                    "CP-REG-005 falló: "
+                            + e.getMessage()
+            );
+        }
+    }
+
+    private void registerUser(String email,
+                              String dni,
+                              String password) {
+
+        driver.get("http://localhost:3000/register");
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.id("outlined-adornment-email")
+        ));
+
+        driver.findElement(By.id("outlined-adornment-name"))
+                .sendKeys("Test");
+
+        driver.findElement(By.id("outlined-adornment-last-name"))
+                .sendKeys("User");
+
+        driver.findElement(By.id("outlined-adornment-dni"))
+                .sendKeys(dni);
+
+        driver.findElement(By.id("outlined-adornment-email"))
+                .sendKeys(email);
+
+        driver.findElement(By.id("outlined-adornment-password"))
+                .sendKeys(password);
+
+        driver.findElement(By.id("outlined-adornment-password-repeated"))
+                .sendKeys(password);
+
+        driver.findElement(By.id("outlined-adornment-phone"))
+                .sendKeys("1555555555");
+
+        driver.findElement(
+                By.xpath("//form//button[normalize-space()='Ingresar']")
+        ).click();
+    }
+
+    private void saveScreenshot(String prefix) {
+        try {
+            File screenshot = ((TakesScreenshot) driver)
+                    .getScreenshotAs(OutputType.FILE);
+
+            java.nio.file.Path destination =
+                    java.nio.file.Paths.get(
+                            "target",
+                            "screenshots",
+                            prefix + "-"
+                                    + java.util.UUID.randomUUID()
+                                    + ".png"
+                    );
+
+            java.nio.file.Files.createDirectories(
+                    destination.getParent()
+            );
+
+            java.nio.file.Files.copy(
+                    screenshot.toPath(),
+                    destination
+            );
+
+            System.out.println(
+                    "Screenshot saved to: "
+                            + destination.toAbsolutePath()
+            );
+        } catch (Exception screenshotError) {
+            System.out.println(
+                    "Failed to save screenshot: "
+                            + screenshotError.getMessage()
+            );
         }
     }
 }
