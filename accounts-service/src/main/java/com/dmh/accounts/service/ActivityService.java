@@ -18,7 +18,9 @@ public class ActivityService {
     private final ActivityRepository activityRepository;
 
     public List<ActivityResponse> findByAccountId(Long accountId) {
-        return activityRepository.findByAccountId(accountId)
+
+        return activityRepository
+                .findByAccountIdOrderByDatedDesc(accountId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
