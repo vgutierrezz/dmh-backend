@@ -1,11 +1,6 @@
 import io.github.bonigarcia.wdm.WebDriverManager;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.api.Order;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -18,6 +13,7 @@ import java.util.Base64;
 
 import java.io.File;
 import java.time.Duration;
+import org.openqa.selenium.TimeoutException;
 
 import static io.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
@@ -58,11 +54,11 @@ public class TestLogin {
                     )
             );
 
-            assertFalse(
+            Assertions.assertFalse(
                     driver.getCurrentUrl().contains("/login"),
                     "El usuario debería salir de la pantalla de login"
             );
-        } catch (TimeoutException exception) {
+        } catch (org.openqa.selenium.TimeoutException exception) {
             saveScreenshot("login-valid-credentials-failure");
 
             fail(
