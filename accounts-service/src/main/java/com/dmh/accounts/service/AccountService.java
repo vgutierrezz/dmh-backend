@@ -147,10 +147,6 @@ public class AccountService {
             throw new AccountNotFoundException("Cuenta inexistente");
         }
 
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidAmountException("El monto debe ser mayor a cero");
-        }
-
         if (accountOrigin.get().getBalance().compareTo(amount) < 0) {
             throw new InsufficientFundsException("Fondos insuficientes");
         }
@@ -170,11 +166,28 @@ public class AccountService {
                 accountOrigin.get().getCvu()
         );
     }
-    private BigDecimal resolveAmount(ActivityRequest transferRequest) {
-        if (transferRequest.amount() == null) {
-            throw new InvalidAmountException("El monto de la transferencia es obligatorio");
+    private BigDecimal resolveAmount(
+            ActivityRequest transferRequest
+    ) {
+
+        if (transferRequest == null
+                || transferRequest.amount() == null) {
+
+            throw new InvalidAmountException(
+                    "El monto de la transferencia es obligatorio"
+            );
         }
-        return transferRequest.amount().abs();
+
+        BigDecimal amount = transferRequest.amount();
+
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+
+            throw new InvalidAmountException(
+                    "El monto debe ser mayor a cero"
+            );
+        }
+
+        return amount;
     }
 
     @Transactional

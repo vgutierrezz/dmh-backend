@@ -148,4 +148,20 @@ public class GlobalExceptionHandler {
                         LocalDateTime.now()
                 ));
     }
+
+    @ExceptionHandler(InsufficientFundsException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientFunds(
+            InsufficientFundsException ex
+    ) {
+
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(
+                        new ErrorResponse(
+                                HttpStatus.GONE.value(),
+                                ex.getMessage(),
+                                LocalDateTime.now()
+                        )
+                );
+    }
+
 }
