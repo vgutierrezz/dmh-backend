@@ -1,12 +1,7 @@
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 
 import java.time.LocalDateTime;
@@ -16,39 +11,19 @@ import java.util.List;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
-
-import static org.hamcrest.Matchers.anyOf;
-import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.everyItem;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.hasKey;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @TestMethodOrder(OrderAnnotation.class)
 public class TestActivity {
 
-    private static final String BASE_URI =
-            "http://localhost:8080";
+    private static final String BASE_URI = "http://localhost:8080";
 
-    private static final String EMAIL =
-            "valentina@test.com";
+    private static final String EMAIL = "valentina@test.com";
 
-    private static final String PASSWORD =
-            "Valen1234";
+    private static final String PASSWORD = "Valen1234";
 
     private static final Long USER_ID = 11L;
-
-    /*
-     * Debe pertenecer al usuario indicado arriba.
-     * En las respuestas anteriores se observaron actividades
-     * con IDs existentes como 5, 6, 7, 8, 10, 12 y 13.
-     */
-    private static final Long EXISTING_ACTIVITY_ID = 5L;
 
     private static final Long NON_EXISTING_USER_ID = 999999L;
 
@@ -78,7 +53,8 @@ public class TestActivity {
                 .then()
                 .log().ifValidationFails()
                 .statusCode(200)
-                .body("$", notNullValue());
+                .body("$", notNullValue())
+                .body("size()", greaterThan(0));
     }
 
     @DisplayName("CP-ACT-002 - Verificar estructura de las actividades")
@@ -223,7 +199,7 @@ public class TestActivity {
      * mantenlo deshabilitado o marcado como BLOCKED en la planilla.
      */
 
-    /*
+
     @DisplayName("CP-ACT-004 - Cuenta sin actividades")
     @Order(4)
     @Test
@@ -231,7 +207,7 @@ public class TestActivity {
 
         String token = loginAndGetToken();
 
-        Long userWithoutActivityId = 36L;
+        Long userWithoutActivityId = 38L;
 
         given()
                 .header("Authorization", "Bearer " + token)
@@ -246,7 +222,7 @@ public class TestActivity {
                 .statusCode(200)
                 .body("$", empty());
     }
-    */
+
 
     @DisplayName("CP-ACT-005 - Consultar historial de cuenta inexistente")
     @Order(5)
@@ -296,6 +272,7 @@ public class TestActivity {
     void shouldGetActivityDetailSuccessfully() {
 
         String token = loginAndGetToken();
+        Long activityId = getExistingActivityId(token);
 
         given()
                 .header("Authorization", "Bearer " + token)
@@ -303,12 +280,12 @@ public class TestActivity {
                 .when()
                 .get(
                         "/api/accounts/activity/"
-                                + EXISTING_ACTIVITY_ID
+                                + activityId
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(200)
-                .body("id", is(EXISTING_ACTIVITY_ID.intValue()))
+                .body("id", is(activityId.intValue()))
                 .body("amount", notNullValue())
                 .body("name", notNullValue())
                 .body("dated", notNullValue())
@@ -323,13 +300,14 @@ public class TestActivity {
     void shouldReturnExpectedActivityDetailStructure() {
 
         String token = loginAndGetToken();
+        Long activityId = getExistingActivityId(token);
 
         given()
                 .header("Authorization", "Bearer " + token)
                 .when()
                 .get(
                         "/api/accounts/activity/"
-                                + EXISTING_ACTIVITY_ID
+                                + activityId
                 )
                 .then()
                 .log().ifValidationFails()
@@ -368,13 +346,13 @@ public class TestActivity {
     @Test
     void shouldRejectActivityDetailWithoutToken() {
 
+        String preparationToken = loginAndGetToken();
+        Long activityId = getExistingActivityId(preparationToken);
+
         given()
                 .log().ifValidationFails()
                 .when()
-                .get(
-                        "/api/accounts/activity/"
-                                + EXISTING_ACTIVITY_ID
-                )
+                .get("/api/accounts/activity/" + activityId)
                 .then()
                 .log().ifValidationFails()
                 .statusCode(anyOf(
@@ -405,5 +383,35 @@ public class TestActivity {
                 .body("token", notNullValue())
                 .extract()
                 .path("token");
+    }
+
+    private Long getExistingActivityId(String token) {
+
+        List<Integer> activityIds =
+                given()
+                        .header("Authorization", "Bearer " + token)
+                        .when()
+                        .get(
+                                "/api/accounts/user/"
+                                        + USER_ID
+                                        + "/activity"
+                        )
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .jsonPath()
+                        .getList("id", Integer.class);
+
+        assertNotNull(
+                activityIds,
+                "La lista de IDs no debe ser null"
+        );
+
+        assertFalse(
+                activityIds.isEmpty(),
+                "Debe existir al menos una actividad"
+        );
+
+        return activityIds.get(0).longValue();
     }
 }
