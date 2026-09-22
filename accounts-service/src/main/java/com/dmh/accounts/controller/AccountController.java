@@ -5,6 +5,7 @@ import com.dmh.accounts.model.Account;
 import com.dmh.accounts.service.AccountService;
 import com.dmh.accounts.service.ActivityService;
 import com.dmh.accounts.service.CardService;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -119,5 +120,19 @@ public class AccountController {
         return ResponseEntity.ok(
                 activityService.findById(activityId)
         );
+    }
+
+    @PostMapping("/user/{userId}/deposit")
+    public ResponseEntity<ActivityResponse> deposit(
+            @PathVariable Long userId,
+            @Valid @RequestBody DepositRequest request
+    ) {
+
+        ActivityResponse response =
+                accountService.deposit(userId, request);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
     }
 }

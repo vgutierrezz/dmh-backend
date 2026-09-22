@@ -1,8 +1,6 @@
 package com.dmh.accounts.service;
 
-import com.dmh.accounts.dto.AccountResponse;
-import com.dmh.accounts.dto.ActivityRequest;
-import com.dmh.accounts.dto.AliasUpdateRequest;
+import com.dmh.accounts.dto.*;
 import com.dmh.accounts.exception.AccountNotFoundException;
 import com.dmh.accounts.exception.AliasAlreadyExistsException;
 import com.dmh.accounts.exception.InsufficientFundsException;
@@ -177,5 +175,61 @@ public class AccountService {
             throw new InvalidAmountException("El monto de la transferencia es obligatorio");
         }
         return transferRequest.amount().abs();
+    }
+
+    @Transactional
+    public ActivityResponse deposit(
+            Long userId,
+            DepositRequest request
+    ) {
+
+        Account account = accountRepository.findByUserId(userId)
+                .orElseThrow(() ->
+                        new AccountNotFoundException(
+                                "Cuenta inexistente para el usuario: "
+                                        + userId
+                        )
+                );
+
+        if (request == null || request.amount() == null) {
+            throw new InvalidAmountException(
+                    "El monto del depósito es obligatorio"
+            );
+        }
+
+        if (request.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidAmountException(
+                    "El monto del depósito debe ser mayor a cero"
+            );
+        }
+
+        if (request.type() == null
+                || !request.type().equalsIgnoreCase("Deposit")) {
+
+            throw new IllegalArgumentException(
+                    "El tipo de operación debe ser Deposit"
+            );
+        }
+
+        String description =
+                request.description() == null
+                        || request.description().isBlank()
+                        ? "Depósito con tarjeta"
+                        : request.description().trim();
+
+        BigDecimal updatedBalance =
+                account.getBalance().add(request.amount());
+
+        account.setBalance(updatedBalance);
+        accountRepository.save(account);
+
+        return activityService.createActivity(
+                "Tarjeta",
+                request.amount(),
+                account.getId(),
+                description,
+                "DEPOSIT",
+                account.getCvu()
+        );
     }
 }
