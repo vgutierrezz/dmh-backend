@@ -60,4 +60,29 @@ public class GlobalExceptionHandler {
                         LocalDateTime.now()
                 ));
     }
+
+    @ExceptionHandler(CardNotAssociatedToUserException.class)
+    public ResponseEntity<ErrorResponse> handleCardNotAssociated(
+            CardNotAssociatedToUserException ex) {
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(
+                        HttpStatus.NOT_FOUND.value(),
+                        ex.getMessage(),
+                        LocalDateTime.now()
+                ));
+    }
+
+    @ExceptionHandler(CardAlreadyAssociatedException.class)
+    public ResponseEntity<ErrorResponse> handleCardAlreadyAssociated(
+            CardAlreadyAssociatedException exception
+    ) {
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(
+                        HttpStatus.CONFLICT.value(),
+                        exception.getMessage(),
+                        LocalDateTime.now()
+                ));
+    }
 }
