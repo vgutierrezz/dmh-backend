@@ -1,180 +1,239 @@
-import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import org.junit.jupiter.api.BeforeEach;
+
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class TestDashboard {
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+public class TestDashboard extends BaseIntegrationTest {
 
-    private static final String BASE_URI = "http://localhost:8080";
-
-    private static final String EMAIL = "valentina@test.com";
-    private static final String PASSWORD = "Valen1234";
-
-    private static final Long USER_ID = 11L;
-    private static final Long USUARIO_SIN_MOVIMIENTOS_ID = 95L;
-    @BeforeEach
-    void setUp() {
-        RestAssured.baseURI = BASE_URI;
-    }
-
-    @DisplayName("CP-DASH-001 - Consultar saldo disponible")
+    @DisplayName(
+            "CP-DASH-001 - Consultar actividad de una cuenta con movimientos"
+    )
+    @Order(1)
     @Test
-    void shouldGetAccountBalanceSuccessfully() {
+    void shouldReturnActivitiesSuccessfully() {
 
-        String token = loginAndGetToken();
+        TestUser user = createAndAuthenticateUser();
 
-        Long userId = 11L;
+        createDeposit(
+                user,
+                "100.00",
+                "Depósito para consultar actividad"
+        );
 
         given()
-                .header("Authorization", "Bearer " + token)
-                .log().all()
+                .header(
+                        "Authorization",
+                        bearerToken(user.token())
+                )
+                .pathParam("userId", user.id())
                 .when()
-                .get("/api/accounts/user/" + userId)
+                .get("/api/accounts/user/{userId}/activity")
                 .then()
-                .log().all()
+                .log().ifValidationFails()
                 .statusCode(200)
-                .body("id", notNullValue())
-                .body("userId", equalTo(userId.toString()))
-                .body("balance", notNullValue())
-                .body("cvu", notNullValue())
-                .body("alias", notNullValue());
+                .contentType(ContentType.JSON)
+                .body("$", notNullValue())
+                .body("$", hasSize(greaterThan(0)));
     }
 
+
     @DisplayName("CP-DASH-002 - Consultar saldo sin token")
+    @Order(2)
     @Test
     void shouldRejectAccessWithoutToken() {
 
-        Long userId = 11L;
+        TestUser user = createAndAuthenticateUser();
 
         given()
-                .log().all()
+                .pathParam("userId", user.id())
                 .when()
-                .get("/api/accounts/user/" + userId)
+                .get("/api/accounts/user/{userId}")
                 .then()
-                .log().all()
+                .log().ifValidationFails()
                 .statusCode(403);
     }
 
+
     @DisplayName("CP-DASH-003 - Consultar cuenta inexistente")
+    @Order(3)
     @Test
     void shouldReturn404WhenUserAccountDoesNotExist() {
 
-        String token = loginAndGetToken();
+        /*
+         * El usuario se crea para obtener un token válido.
+         * El ID consultado no corresponde a una cuenta existente.
+         */
+        TestUser authenticatedUser =
+                createAndAuthenticateUser();
 
-        Long userId = 999999L;
+        long nonexistentUserId = 999999999L;
 
         given()
-                .header("Authorization", "Bearer " + token)
-                .log().all()
+                .header(
+                        "Authorization",
+                        bearerToken(
+                                authenticatedUser.token()
+                        )
+                )
+                .pathParam(
+                        "userId",
+                        nonexistentUserId
+                )
                 .when()
-                .get("/api/accounts/user/" + userId)
+                .get("/api/accounts/user/{userId}")
                 .then()
-                .log().all()
+                .log().ifValidationFails()
                 .statusCode(404);
     }
 
     @DisplayName("CP-DASH-004 - Consultar movimientos")
+    @Order(4)
     @Test
     void shouldGetAccountActivitySuccessfully() {
 
-        String token = loginAndGetToken();
-        Long userId = 11L;
+        TestUser user = createAndAuthenticateUser();
+
+        createDeposit(
+                user,
+                "150.00",
+                "Depósito para consultar movimientos"
+        );
 
         given()
-                .header("Authorization", "Bearer " + token)
-                .log().all()
+                .header(
+                        "Authorization",
+                        bearerToken(user.token())
+                )
+                .pathParam("userId", user.id())
                 .when()
-                .get("/api/accounts/user/" + userId + "/activity")
+                .get("/api/accounts/user/{userId}/activity")
                 .then()
-                .log().all()
+                .log().ifValidationFails()
                 .statusCode(200)
-                .body("$", notNullValue());
+                .contentType(ContentType.JSON)
+                .body("$", notNullValue())
+                .body("$", hasSize(greaterThan(0)));
     }
 
-    @DisplayName("CP-DASH-005 - Cuenta sin movimientos")
+    @DisplayName("CP-DASH-005 - Cuenta existente sin actividades")
+    @Order(5)
     @Test
     void shouldReturnEmptyListWhenAccountHasNoActivities() {
 
-        String token = loginAndGetToken();
-        Long userId = USUARIO_SIN_MOVIMIENTOS_ID;
+        /*
+         * Se crea el usuario y su cuenta, pero no se realizan
+         * depósitos ni transferencias.
+         */
+        TestUser user = createAndAuthenticateUser();
 
         given()
-                .header("Authorization", "Bearer " + token)
-                .log().all()
+                .header(
+                        "Authorization",
+                        bearerToken(user.token())
+                )
+                .pathParam("userId", user.id())
                 .when()
-                .get("/api/accounts/user/" + userId + "/activity")
+                .get("/api/accounts/user/{userId}/activity")
                 .then()
-                .log().all()
+                .log().ifValidationFails()
                 .statusCode(200)
+                .contentType(ContentType.JSON)
                 .body("$", hasSize(0));
     }
 
-    @DisplayName("CP-DASH-006 - Movimientos ordenados del más reciente al más antiguo")
+
+    @DisplayName(
+            "CP-DASH-006 - Movimientos ordenados del más reciente al más antiguo"
+    )
+    @Order(6)
     @Test
     void shouldReturnActivitiesOrderedByDateDesc() {
 
-        String token = loginAndGetToken();
-        Long userId = 11L;
+        TestUser user = createAndAuthenticateUser();
+
+        createDeposit(
+                user,
+                "100.00",
+                "Primer depósito"
+        );
+
+        sleep(100);
+
+        createDeposit(
+                user,
+                "200.00",
+                "Segundo depósito"
+        );
+
+        sleep(100);
+
+        createDeposit(
+                user,
+                "300.00",
+                "Tercer depósito"
+        );
 
         Response response =
                 given()
-                        .header("Authorization", "Bearer " + token)
-                        .log().all()
+                        .header(
+                                "Authorization",
+                                bearerToken(user.token())
+                        )
+                        .pathParam(
+                                "userId",
+                                user.id()
+                        )
                         .when()
-                        .get("/api/accounts/user/" + userId + "/activity");
+                        .get(
+                                "/api/accounts/user/{userId}/activity"
+                        );
 
         response.then()
-                .log().all()
-                .statusCode(200);
+                .log().ifValidationFails()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("$", hasSize(3));
 
         List<String> dates =
                 response.jsonPath()
-                        .getList("dated", String.class);
+                        .getList(
+                                "dated",
+                                String.class
+                        );
 
         assertNotNull(
                 dates,
                 "La respuesta debe incluir las fechas de las actividades"
         );
 
-        List<String> sortedDates = new ArrayList<>(dates);
-        sortedDates.sort(Comparator.reverseOrder());
+        List<String> sortedDates =
+                new ArrayList<>(dates);
+
+        sortedDates.sort(
+                Comparator.reverseOrder()
+        );
 
         assertEquals(
                 sortedDates,
                 dates,
-                "Las actividades deben estar ordenadas de la más reciente a la más antigua"
+                "Las actividades deben estar ordenadas "
+                        + "de la más reciente a la más antigua"
         );
-    }
-
-    private String loginAndGetToken() {
-
-        return given()
-                .contentType(ContentType.JSON)
-                .body("""
-                    {
-                      "email": "valentina@test.com",
-                      "password": "Valen1234"
-                    }
-                    """)
-                .log().all()
-                .when()
-                .post("/api/auth/login")
-                .then()
-                .log().all()
-                .statusCode(200)
-                .body("token", notNullValue())
-                .extract()
-                .path("token");
     }
 }

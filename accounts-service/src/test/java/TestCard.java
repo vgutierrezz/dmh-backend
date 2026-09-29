@@ -1,255 +1,335 @@
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 
 import static io.restassured.RestAssured.given;
-
-import static org.hamcrest.Matchers.anyOf;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class TestCard {
-    @DisplayName("CP-CARD-001 - Consultar tarjetas asociadas")
-    @Test
-    void shouldGetCardsByUserIdSuccessfully() {
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+public class TestCard extends BaseIntegrationTest {
 
-        String token = loginAndGetToken();
+    private static final String BASE_URI = "http://localhost:8080";
 
-        given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .get("/api/accounts/user/11/cards")
-                .then()
-                .statusCode(200);
+    /*
+     * Se utiliza para generar correos y números de tarjeta únicos,
+     * incluso cuando las pruebas se ejecutan rápidamente.
+     */
+
+    @BeforeAll
+    static void configureRestAssured() {
+        RestAssured.baseURI = BASE_URI;
+        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
     }
 
-    @DisplayName("CP-CARD-002 - Usuario sin tarjetas")
+    @DisplayName("CP-CARD-001 - Consultar tarjetas de una cuenta sin tarjetas")
+    @Order(1)
     @Test
-    void shouldReturnEmptyListWhenUserHasNoCards() {
+    void shouldReturnEmptyListWhenAccountHasNoCards() {
 
-        String token = loginAndGetToken();
-
-        Long userId = 36L; // ejemplo
+        TestUser user = createAndAuthenticateUser();
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", bearerToken(user.token()))
+                .pathParam("userId", user.id())
                 .when()
-                .get("/api/accounts/user/" + userId + "/cards")
+                .get("/api/accounts/user/{userId}/cards")
                 .then()
+                .log().ifValidationFails()
                 .statusCode(200)
+                .contentType(ContentType.JSON)
                 .body("$", hasSize(0));
     }
 
-    @DisplayName("CP-CARD-003 - Obtener tarjetas existentes")
-    @Test
-    void shouldReturnCardList() {
-
-        String token = loginAndGetToken();
-
-        given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .get("/api/accounts/user/11/cards")
-                .then()
-                .statusCode(200)
-                .body("$", notNullValue());
-    }
-
-    @DisplayName("CP-CARD-004 - Usuario inexistente")
-    @Test
-    void shouldReturnNotFoundWhenUserDoesNotExist() {
-
-        String token = loginAndGetToken();
-
-        given()
-                .header("Authorization", "Bearer " + token)
-                .log().all()
-                .when()
-                .get("/api/accounts/user/999999/cards")
-                .then()
-                .log().all()
-                .statusCode(404);
-    }
-
-    @DisplayName("CP-CARD-005 - Registrar tarjeta correctamente")
+    @DisplayName("CP-CARD-002 - Registrar tarjeta correctamente")
+    @Order(2)
     @Test
     void shouldCreateCardSuccessfully() {
 
-        String token = loginAndGetToken();
-
-        String cardNumber =
-                "411111" + String.valueOf(System.nanoTime()).substring(0, 10);
-
-        String cardRequest = createCardRequest(cardNumber);
+        TestUser user = createAndAuthenticateUser();
+        String cardNumber = generateUniqueCardNumber();
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", bearerToken(user.token()))
                 .contentType(ContentType.JSON)
-                .body(cardRequest)
-                .log().all()
+                .pathParam("userId", user.id())
+                .body(
+                        createCardRequest(
+                                cardNumber,
+                                user.fullName()
+                        )
+                )
                 .when()
-                .post("/api/accounts/user/" + USER_ID + "/cards")
+                .post("/api/accounts/user/{userId}/cards")
                 .then()
-                .log().all()
+                .log().ifValidationFails()
                 .statusCode(201)
+                .contentType(ContentType.JSON)
                 .body("id", notNullValue())
                 .body("number", equalTo(cardNumber))
-                .body("name", equalTo("Valentina Gutierrez"))
+                .body("name", equalTo(user.fullName()))
                 .body("type", notNullValue());
     }
 
-    @DisplayName("CP-CARD-006 - Tarjeta duplicada")
+    @DisplayName("CP-CARD-003 - Consultar tarjetas asociadas")
+    @Order(3)
+    @Test
+    void shouldReturnAssociatedCards() {
+
+        TestUser user = createAndAuthenticateUser();
+        String cardNumber = generateUniqueCardNumber();
+
+        createCard(user, cardNumber);
+
+        given()
+                .header("Authorization", bearerToken(user.token()))
+                .pathParam("userId", user.id())
+                .when()
+                .get("/api/accounts/user/{userId}/cards")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("$", hasSize(1))
+                .body("[0].id", notNullValue())
+                .body("[0].number", equalTo(cardNumber))
+                .body("[0].name", equalTo(user.fullName()))
+                .body("[0].type", notNullValue());
+    }
+
+
+    @DisplayName("CP-CARD-004 - Consultar tarjetas de usuario inexistente")
+    @Order(4)
+    @Test
+    void shouldReturnNotFoundWhenUserDoesNotExist() {
+
+        TestUser authenticatedUser = createAndAuthenticateUser();
+        long nonexistentUserId = 999999999L;
+
+        given()
+                .header(
+                        "Authorization",
+                        bearerToken(authenticatedUser.token())
+                )
+                .pathParam("userId", nonexistentUserId)
+                .when()
+                .get("/api/accounts/user/{userId}/cards")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(404);
+    }
+
+
+    @DisplayName("CP-CARD-005 - Rechazar tarjeta duplicada")
+    @Order(5)
     @Test
     void shouldRejectAlreadyAssociatedCard() {
 
-        String token = loginAndGetToken();
+        TestUser user = createAndAuthenticateUser();
         String cardNumber = generateUniqueCardNumber();
-        String cardRequest = createCardRequest(cardNumber);
+
+        String requestBody = createCardRequest(
+                cardNumber,
+                user.fullName()
+        );
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", bearerToken(user.token()))
                 .contentType(ContentType.JSON)
-                .body(cardRequest)
+                .pathParam("userId", user.id())
+                .body(requestBody)
                 .when()
-                .post("/api/accounts/user/" + USER_ID + "/cards")
+                .post("/api/accounts/user/{userId}/cards")
                 .then()
+                .log().ifValidationFails()
                 .statusCode(201);
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", bearerToken(user.token()))
                 .contentType(ContentType.JSON)
-                .body(cardRequest)
-                .log().all()
+                .pathParam("userId", user.id())
+                .body(requestBody)
                 .when()
-                .post("/api/accounts/user/" + USER_ID + "/cards")
+                .post("/api/accounts/user/{userId}/cards")
                 .then()
-                .log().all()
+                .log().ifValidationFails()
                 .statusCode(409);
     }
 
-    @DisplayName("CP-CARD-007 - Campos obligatorios vacíos")
+    @DisplayName("CP-CARD-006 - Rechazar tarjeta con campos obligatorios vacíos")
+    @Order(6)
     @Test
-    void shouldRejectCardWithMissingFields() {
+    void shouldRejectCardWithMissingRequiredFields() {
 
-        String token = loginAndGetToken();
+        TestUser user = createAndAuthenticateUser();
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", bearerToken(user.token()))
                 .contentType(ContentType.JSON)
+                .pathParam("userId", user.id())
                 .body("{}")
                 .when()
-                .post("/api/accounts/user/11/cards")
+                .post("/api/accounts/user/{userId}/cards")
                 .then()
+                .log().ifValidationFails()
                 .statusCode(400);
     }
 
+
+    @DisplayName("CP-CARD-007 - Rechazar tarjeta para usuario inexistente")
+    @Order(7)
+    @Test
+    void shouldReturnNotFoundWhenCreatingCardForNonexistentUser() {
+
+        TestUser authenticatedUser = createAndAuthenticateUser();
+        long nonexistentUserId = 999999999L;
+
+        given()
+                .header(
+                        "Authorization",
+                        bearerToken(authenticatedUser.token())
+                )
+                .contentType(ContentType.JSON)
+                .pathParam("userId", nonexistentUserId)
+                .body(
+                        createCardRequest(
+                                generateUniqueCardNumber(),
+                                authenticatedUser.fullName()
+                        )
+                )
+                .when()
+                .post("/api/accounts/user/{userId}/cards")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(404);
+    }
+
+
     @DisplayName("CP-CARD-008 - Eliminar tarjeta correctamente")
+    @Order(8)
     @Test
     void shouldDeleteCardSuccessfully() {
 
-        String token = loginAndGetToken();
-        String cardNumber = generateUniqueCardNumber();
-        String cardRequest = createCardRequest(cardNumber);
-
-        String cardId =
-                given()
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(ContentType.JSON)
-                        .body(cardRequest)
-                        .when()
-                        .post("/api/accounts/user/" + USER_ID + "/cards")
-                        .then()
-                        .statusCode(201)
-                        .extract()
-                        .path("id");
+        TestUser user = createAndAuthenticateUser();
+        Long cardId = createCard(
+                user,
+                generateUniqueCardNumber()
+        );
 
         assertNotNull(cardId);
 
         given()
-                .header("Authorization", "Bearer " + token)
-                .log().all()
+                .header("Authorization", bearerToken(user.token()))
+                .pathParam("userId", user.id())
+                .pathParam("cardId", cardId)
                 .when()
                 .delete(
-                        "/api/accounts/user/"
-                                + USER_ID
-                                + "/cards/"
-                                + cardId
+                        "/api/accounts/user/{userId}/cards/{cardId}"
                 )
                 .then()
-                .log().all()
-                .statusCode(204);
-    }
-
-    @DisplayName("CP-CARD-009 - Eliminar tarjeta inexistente")
-    @Test
-    void shouldReturnNotFoundWhenCardDoesNotExist() {
-
-        String token = loginAndGetToken();
-
-        given()
-                .header("Authorization", "Bearer " + token)
-                .log().all()
-                .when()
-                .delete(
-                        "/api/accounts/user/"
-                                + USER_ID
-                                + "/cards/999999"
-                )
-                .then()
-                .log().all()
-                .statusCode(404);
-    }
-
-    private static final String BASE_URI = "http://localhost:8080";
-    private static final Long USER_ID = 11L;
-
-    private String loginAndGetToken() {
-
-        RestAssured.baseURI = BASE_URI;
-
-        return given()
-                .contentType(ContentType.JSON)
-                .body("""
-                    {
-                      "email": "valentina@test.com",
-                      "password": "Valen1234"
-                    }
-                    """)
                 .log().ifValidationFails()
+                .statusCode(200);
+
+        /*
+         * La guía exige 200 para una eliminación correcta.
+         * Esta segunda petición comprueba además que la tarjeta
+         * efectivamente dejó de estar asociada.
+         */
+        given()
+                .header("Authorization", bearerToken(user.token()))
+                .pathParam("userId", user.id())
                 .when()
-                .post("/api/auth/login")
+                .get("/api/accounts/user/{userId}/cards")
                 .then()
                 .log().ifValidationFails()
                 .statusCode(200)
-                .body("token", notNullValue())
-                .extract()
-                .path("token");
+                .body("$", hasSize(0));
     }
 
-    private String createCardRequest(String cardNumber) {
-        return """
-            {
-              "number": "%s",
-              "name": "Valentina Gutierrez",
-              "expiration": "12/30",
-              "cvc": "123"
-            }
-            """.formatted(cardNumber);
+    @DisplayName("CP-CARD-009 - Eliminar tarjeta inexistente")
+    @Order(9)
+    @Test
+    void shouldReturnNotFoundWhenCardDoesNotExist() {
+
+        TestUser user = createAndAuthenticateUser();
+        long nonexistentCardId = 999999999L;
+
+        given()
+                .header("Authorization", bearerToken(user.token()))
+                .pathParam("userId", user.id())
+                .pathParam("cardId", nonexistentCardId)
+                .when()
+                .delete(
+                        "/api/accounts/user/{userId}/cards/{cardId}"
+                )
+                .then()
+                .log().ifValidationFails()
+                .statusCode(404);
     }
 
-    private String generateUniqueCardNumber() {
 
-        String timestamp = String.valueOf(System.currentTimeMillis());
+    @DisplayName("CP-CARD-010 - Consultar tarjetas sin token")
+    @Order(10)
+    @Test
+    void shouldRejectCardQueryWithoutToken() {
 
-        return "4111" +
-                timestamp.substring(
-                        timestamp.length() - 12
-                );
+        TestUser user = createAndAuthenticateUser();
+
+        given()
+                .pathParam("userId", user.id())
+                .when()
+                .get("/api/accounts/user/{userId}/cards")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(403);
+    }
+
+
+    @DisplayName("CP-CARD-011 - Registrar tarjeta sin token")
+    @Order(11)
+    @Test
+    void shouldRejectCardCreationWithoutToken() {
+
+        TestUser user = createAndAuthenticateUser();
+
+        given()
+                .contentType(ContentType.JSON)
+                .pathParam("userId", user.id())
+                .body(
+                        createCardRequest(
+                                generateUniqueCardNumber(),
+                                user.fullName()
+                        )
+                )
+                .when()
+                .post("/api/accounts/user/{userId}/cards")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(403);
+    }
+
+
+    @DisplayName("CP-CARD-012 - Eliminar tarjeta sin token")
+    @Order(12)
+    @Test
+    void shouldRejectCardDeletionWithoutToken() {
+
+        TestUser user = createAndAuthenticateUser();
+
+        Long cardId = createCard(
+                user,
+                generateUniqueCardNumber()
+        );
+
+        given()
+                .pathParam("userId", user.id())
+                .pathParam("cardId", cardId)
+                .when()
+                .delete(
+                        "/api/accounts/user/{userId}/cards/{cardId}"
+                )
+                .then()
+                .log().ifValidationFails()
+                .statusCode(403);
     }
 }
