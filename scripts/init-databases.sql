@@ -1,0 +1,2 @@
+CREATE DATABASE IF NOT EXISTS dmh_users_db;
+CREATE DATABASE IF NOT EXISTS dmh_accounts_db;

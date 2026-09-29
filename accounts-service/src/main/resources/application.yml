@@ -2,7 +2,7 @@ spring:
   application:
     name: accounts-service
   datasource:
-    url: jdbc:mysql://localhost:3306/accounts_db?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/dmh_accounts_db?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
     username: dmh_user
     password: dmh_password
     driver-class-name: com.mysql.cj.jdbc.Driver

@@ -147,10 +147,6 @@ public class AccountService {
             throw new AccountNotFoundException("Cuenta inexistente");
         }
 
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidAmountException("El monto debe ser mayor a cero");
-        }
-
         if (accountOrigin.get().getBalance().compareTo(amount) < 0) {
             throw new InsufficientFundsException("Fondos insuficientes");
         }
@@ -170,11 +166,84 @@ public class AccountService {
                 accountOrigin.get().getCvu()
         );
     }
-    private BigDecimal resolveAmount(ActivityRequest transferRequest) {
-        if (transferRequest.amount() == null) {
-            throw new InvalidAmountException("El monto de la transferencia es obligatorio");
+    private BigDecimal resolveAmount(
+            ActivityRequest transferRequest
+    ) {
+
+        if (transferRequest == null
+                || transferRequest.amount() == null) {
+
+            throw new InvalidAmountException(
+                    "El monto de la transferencia es obligatorio"
+            );
         }
-        return transferRequest.amount().abs();
+
+        BigDecimal amount = transferRequest.amount();
+
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+
+            throw new InvalidAmountException(
+                    "El monto debe ser mayor a cero"
+            );
+        }
+
+        return amount;
+    }
+
+    @Transactional
+    public ActivityResponse deposit(
+            Long userId,
+            DepositRequest request
+    ) {
+
+        Account account = accountRepository.findByUserId(userId)
+                .orElseThrow(() ->
+                        new AccountNotFoundException(
+                                "Cuenta inexistente para el usuario: "
+                                        + userId
+                        )
+                );
+
+        if (request == null || request.amount() == null) {
+            throw new InvalidAmountException(
+                    "El monto del depósito es obligatorio"
+            );
+        }
+
+        if (request.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidAmountException(
+                    "El monto del depósito debe ser mayor a cero"
+            );
+        }
+
+        if (request.type() == null
+                || !request.type().equalsIgnoreCase("Deposit")) {
+
+            throw new IllegalArgumentException(
+                    "El tipo de operación debe ser Deposit"
+            );
+        }
+
+        String description =
+                request.description() == null
+                        || request.description().isBlank()
+                        ? "Depósito con tarjeta"
+                        : request.description().trim();
+
+        BigDecimal updatedBalance =
+                account.getBalance().add(request.amount());
+
+        account.setBalance(updatedBalance);
+        accountRepository.save(account);
+
+        return activityService.createActivity(
+                "Tarjeta",
+                request.amount(),
+                account.getId(),
+                description,
+                "DEPOSIT",
+                account.getCvu()
+        );
     }
 
     @Transactional

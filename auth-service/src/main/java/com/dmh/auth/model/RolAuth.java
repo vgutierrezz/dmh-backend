@@ -17,5 +17,5 @@ public class RolAuth {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private String nombre; // Guardará valores como "USER" o "ADMIN"
+    private String name; // Guardará valores como "USER" o "ADMIN"
 }
