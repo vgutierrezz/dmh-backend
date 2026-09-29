@@ -1,54 +1,43 @@
-import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.*;
 
-import java.util.List;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class TestTransfers {
+public class TestTransfers extends BaseIntegrationTest {
 
-    private static final String BASE_URI =
-            "http://localhost:8080";
+    private static final long NON_EXISTING_USER_ID = 999999999L;
 
-    private static final String EMAIL =
-            "valentina@test.com";
-
-    private static final String PASSWORD =
-            "Valen1234";
-
-    private static final Long ORIGIN_USER_ID = 11L;
-
-    private static final Long NON_EXISTING_USER_ID = 999999L;
-
-    private static final String NON_EXISTING_CVU =
-            "9999999999999999999999";
+    private static final String NON_EXISTING_CVU = "9999999999999999999999";
 
     private static final double TRANSFER_AMOUNT = 100.0;
 
-    @BeforeEach
-    void setUp() {
-        RestAssured.baseURI = BASE_URI;
-    }
 
     @DisplayName("CP-TRF-001 - Realizar transferencia válida")
     @Order(1)
     @Test
     void shouldCreateTransferSuccessfully() {
 
-        String token = loginAndGetToken();
+        TestUser originUser =
+                createAndAuthenticateUser();
 
-        fundOriginAccount(token, 500.0);
+        TestUser destinationUser =
+                createAndAuthenticateUser();
 
-        Map<String, Object> destinationAccount =
-                getDestinationAccount(token);
+        createDeposit(
+                originUser,
+                "500.00",
+                "Preparación de transferencia"
+        );
 
         String destinationCvu =
-                destinationAccount.get("cvu").toString();
+                getAccountCvu(destinationUser);
 
         String request =
                 createTransferRequest(
@@ -57,29 +46,39 @@ public class TestTransfers {
                 );
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(originUser.token())
+                )
                 .contentType(ContentType.JSON)
+                .pathParam(
+                        "userId",
+                        originUser.id()
+                )
                 .body(request)
-                .log().ifValidationFails()
                 .when()
                 .post(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/transfers"
+                        "/api/accounts/user/{userId}/transfers"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(200);
     }
 
+
     @DisplayName("CP-TRF-002 - Transferir a cuenta inexistente")
     @Order(2)
     @Test
     void shouldReturn404WhenDestinationAccountDoesNotExist() {
 
-        String token = loginAndGetToken();
+        TestUser originUser =
+                createAndAuthenticateUser();
 
-        fundOriginAccount(token, 200.0);
+        createDeposit(
+                originUser,
+                "200.00",
+                "Preparación de transferencia"
+        );
 
         String request =
                 createTransferRequest(
@@ -88,36 +87,42 @@ public class TestTransfers {
                 );
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(originUser.token())
+                )
                 .contentType(ContentType.JSON)
+                .pathParam(
+                        "userId",
+                        originUser.id()
+                )
                 .body(request)
-                .log().ifValidationFails()
                 .when()
                 .post(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/transfers"
+                        "/api/accounts/user/{userId}/transfers"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(404);
     }
 
+
     @DisplayName("CP-TRF-003 - Transferir sin fondos suficientes")
     @Order(3)
     @Test
     void shouldRejectTransferWhenFundsAreInsufficient() {
 
-        String token = loginAndGetToken();
+        TestUser originUser =
+                createAndAuthenticateUser();
 
-        Map<String, Object> destinationAccount =
-                getDestinationAccount(token);
+        TestUser destinationUser =
+                createAndAuthenticateUser();
 
         String destinationCvu =
-                destinationAccount.get("cvu").toString();
+                getAccountCvu(destinationUser);
 
         double currentBalance =
-                getBalance(token, ORIGIN_USER_ID);
+                getBalance(originUser);
 
         double excessiveAmount =
                 currentBalance + 1_000_000.0;
@@ -129,38 +134,45 @@ public class TestTransfers {
                 );
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(originUser.token())
+                )
                 .contentType(ContentType.JSON)
+                .pathParam(
+                        "userId",
+                        originUser.id()
+                )
                 .body(request)
-                .log().ifValidationFails()
                 .when()
                 .post(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/transfers"
+                        "/api/accounts/user/{userId}/transfers"
                 )
                 .then()
                 .log().ifValidationFails()
-                .statusCode(anyOf(
-                        is(400),
-                        is(410)
-                ));
+                .statusCode(410);
     }
+
 
     @DisplayName("CP-TRF-004 - Transferir monto negativo")
     @Order(4)
     @Test
     void shouldRejectNegativeTransferAmount() {
 
-        String token = loginAndGetToken();
+        TestUser originUser =
+                createAndAuthenticateUser();
 
-        fundOriginAccount(token, 200.0);
+        TestUser destinationUser =
+                createAndAuthenticateUser();
 
-        Map<String, Object> destinationAccount =
-                getDestinationAccount(token);
+        createDeposit(
+                originUser,
+                "200.00",
+                "Preparación de transferencia"
+        );
 
         String destinationCvu =
-                destinationAccount.get("cvu").toString();
+                getAccountCvu(destinationUser);
 
         String request =
                 createTransferRequest(
@@ -169,33 +181,39 @@ public class TestTransfers {
                 );
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(originUser.token())
+                )
                 .contentType(ContentType.JSON)
+                .pathParam(
+                        "userId",
+                        originUser.id()
+                )
                 .body(request)
-                .log().ifValidationFails()
                 .when()
                 .post(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/transfers"
+                        "/api/accounts/user/{userId}/transfers"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(400);
     }
 
+
     @DisplayName("CP-TRF-005 - Transferir monto cero")
     @Order(5)
     @Test
     void shouldRejectZeroTransferAmount() {
 
-        String token = loginAndGetToken();
+        TestUser originUser =
+                createAndAuthenticateUser();
 
-        Map<String, Object> destinationAccount =
-                getDestinationAccount(token);
+        TestUser destinationUser =
+                createAndAuthenticateUser();
 
         String destinationCvu =
-                destinationAccount.get("cvu").toString();
+                getAccountCvu(destinationUser);
 
         String request =
                 createTransferRequest(
@@ -204,33 +222,39 @@ public class TestTransfers {
                 );
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(originUser.token())
+                )
                 .contentType(ContentType.JSON)
+                .pathParam(
+                        "userId",
+                        originUser.id()
+                )
                 .body(request)
-                .log().ifValidationFails()
                 .when()
                 .post(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/transfers"
+                        "/api/accounts/user/{userId}/transfers"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(400);
     }
 
+
     @DisplayName("CP-TRF-006 - Transferir sin token")
     @Order(6)
     @Test
     void shouldRejectTransferWithoutToken() {
 
-        String preparationToken = loginAndGetToken();
+        TestUser originUser =
+                createAndAuthenticateUser();
 
-        Map<String, Object> destinationAccount =
-                getDestinationAccount(preparationToken);
+        TestUser destinationUser =
+                createAndAuthenticateUser();
 
         String destinationCvu =
-                destinationAccount.get("cvu").toString();
+                getAccountCvu(destinationUser);
 
         String request =
                 createTransferRequest(
@@ -240,39 +264,43 @@ public class TestTransfers {
 
         given()
                 .contentType(ContentType.JSON)
+                .pathParam(
+                        "userId",
+                        originUser.id()
+                )
                 .body(request)
-                .log().ifValidationFails()
                 .when()
                 .post(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/transfers"
+                        "/api/accounts/user/{userId}/transfers"
                 )
                 .then()
                 .log().ifValidationFails()
-                .statusCode(anyOf(
-                        is(401),
-                        is(403)
-                ));
+                .statusCode(403);
     }
+
 
     @DisplayName("CP-TRF-007 - Verificar descuento de saldo origen")
     @Order(7)
     @Test
     void shouldDecreaseOriginAccountBalance() {
 
-        String token = loginAndGetToken();
+        TestUser originUser =
+                createAndAuthenticateUser();
 
-        fundOriginAccount(token, 500.0);
+        TestUser destinationUser =
+                createAndAuthenticateUser();
 
-        Map<String, Object> destinationAccount =
-                getDestinationAccount(token);
+        createDeposit(
+                originUser,
+                "500.00",
+                "Preparación de transferencia"
+        );
 
         String destinationCvu =
-                destinationAccount.get("cvu").toString();
+                getAccountCvu(destinationUser);
 
         double initialOriginBalance =
-                getBalance(token, ORIGIN_USER_ID);
+                getBalance(originUser);
 
         String request =
                 createTransferRequest(
@@ -281,21 +309,26 @@ public class TestTransfers {
                 );
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(originUser.token())
+                )
                 .contentType(ContentType.JSON)
+                .pathParam(
+                        "userId",
+                        originUser.id()
+                )
                 .body(request)
                 .when()
                 .post(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/transfers"
+                        "/api/accounts/user/{userId}/transfers"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(200);
 
         double finalOriginBalance =
-                getBalance(token, ORIGIN_USER_ID);
+                getBalance(originUser);
 
         assertEquals(
                 initialOriginBalance - TRANSFER_AMOUNT,
@@ -306,30 +339,29 @@ public class TestTransfers {
         );
     }
 
+
     @DisplayName("CP-TRF-008 - Verificar acreditación de saldo destino")
     @Order(8)
     @Test
     void shouldIncreaseDestinationAccountBalance() {
 
-        String token = loginAndGetToken();
+        TestUser originUser =
+                createAndAuthenticateUser();
 
-        fundOriginAccount(token, 500.0);
+        TestUser destinationUser =
+                createAndAuthenticateUser();
 
-        Map<String, Object> destinationAccount =
-                getDestinationAccount(token);
-
-        Long destinationUserId =
-                Long.valueOf(
-                        destinationAccount
-                                .get("userId")
-                                .toString()
-                );
+        createDeposit(
+                originUser,
+                "500.00",
+                "Preparación de transferencia"
+        );
 
         String destinationCvu =
-                destinationAccount.get("cvu").toString();
+                getAccountCvu(destinationUser);
 
         double initialDestinationBalance =
-                getBalance(token, destinationUserId);
+                getBalance(destinationUser);
 
         String request =
                 createTransferRequest(
@@ -338,21 +370,26 @@ public class TestTransfers {
                 );
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(originUser.token())
+                )
                 .contentType(ContentType.JSON)
+                .pathParam(
+                        "userId",
+                        originUser.id()
+                )
                 .body(request)
                 .when()
                 .post(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/transfers"
+                        "/api/accounts/user/{userId}/transfers"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(200);
 
         double finalDestinationBalance =
-                getBalance(token, destinationUserId);
+                getBalance(destinationUser);
 
         assertEquals(
                 initialDestinationBalance + TRANSFER_AMOUNT,
@@ -363,20 +400,26 @@ public class TestTransfers {
         );
     }
 
+
     @DisplayName("CP-TRF-009 - Verificar actividad generada por transferencia")
     @Order(9)
     @Test
     void shouldGenerateTransferActivity() {
 
-        String token = loginAndGetToken();
+        TestUser originUser =
+                createAndAuthenticateUser();
 
-        fundOriginAccount(token, 500.0);
+        TestUser destinationUser =
+                createAndAuthenticateUser();
 
-        Map<String, Object> destinationAccount =
-                getDestinationAccount(token);
+        createDeposit(
+                originUser,
+                "500.00",
+                "Preparación de transferencia"
+        );
 
         String destinationCvu =
-                destinationAccount.get("cvu").toString();
+                getAccountCvu(destinationUser);
 
         String request =
                 createTransferRequest(
@@ -385,83 +428,109 @@ public class TestTransfers {
                 );
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(originUser.token())
+                )
                 .contentType(ContentType.JSON)
+                .pathParam(
+                        "userId",
+                        originUser.id()
+                )
                 .body(request)
                 .when()
                 .post(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/transfers"
+                        "/api/accounts/user/{userId}/transfers"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(200);
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(originUser.token())
+                )
+                .pathParam(
+                        "userId",
+                        originUser.id()
+                )
                 .when()
                 .get(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/activity"
+                        "/api/accounts/user/{userId}/activity"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(200)
                 .body("[0].type", equalTo("TRANSFER"))
-                .body("[0].amount", notNullValue());
+                .body(
+                        "[0].amount",
+                        equalTo((float) TRANSFER_AMOUNT)
+                )
+                .body("[0].id", notNullValue());
     }
+
 
     @DisplayName("CP-TRF-010 - Transferencia con monto nulo")
     @Order(10)
     @Test
     void shouldRejectTransferWithoutAmount() {
 
-        String token = loginAndGetToken();
+        TestUser originUser =
+                createAndAuthenticateUser();
 
-        Map<String, Object> destinationAccount =
-                getDestinationAccount(token);
+        TestUser destinationUser =
+                createAndAuthenticateUser();
 
         String destinationCvu =
-                destinationAccount.get("cvu").toString();
+                getAccountCvu(destinationUser);
 
         String request = """
                 {
-                    "destination": "%s",
-                    "origin": "Cuenta origen",
-                    "type": "TRANSFER"
+                  "destination": "%s",
+                  "origin": "Cuenta origen",
+                  "type": "TRANSFER"
                 }
                 """.formatted(destinationCvu);
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(originUser.token())
+                )
                 .contentType(ContentType.JSON)
+                .pathParam(
+                        "userId",
+                        originUser.id()
+                )
                 .body(request)
-                .log().ifValidationFails()
                 .when()
                 .post(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/transfers"
+                        "/api/accounts/user/{userId}/transfers"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(400);
     }
 
+
     @DisplayName("CP-TRF-011 - Transferir desde cuenta inexistente")
     @Order(11)
     @Test
     void shouldReturn404WhenOriginAccountDoesNotExist() {
 
-        String token = loginAndGetToken();
+        /*
+         * Se crea un usuario para obtener un token válido
+         * y otro para disponer de una cuenta destino válida.
+         */
+        TestUser authenticatedUser =
+                createAndAuthenticateUser();
 
-        Map<String, Object> destinationAccount =
-                getDestinationAccount(token);
+        TestUser destinationUser =
+                createAndAuthenticateUser();
 
         String destinationCvu =
-                destinationAccount.get("cvu").toString();
+                getAccountCvu(destinationUser);
 
         String request =
                 createTransferRequest(
@@ -470,84 +539,46 @@ public class TestTransfers {
                 );
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(authenticatedUser.token())
+                )
                 .contentType(ContentType.JSON)
+                .pathParam(
+                        "userId",
+                        NON_EXISTING_USER_ID
+                )
                 .body(request)
-                .log().ifValidationFails()
                 .when()
                 .post(
-                        "/api/accounts/user/"
-                                + NON_EXISTING_USER_ID
-                                + "/transfers"
+                        "/api/accounts/user/{userId}/transfers"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(404);
     }
 
-    private String loginAndGetToken() {
-
-        return given()
-                .contentType(ContentType.JSON)
-                .body("""
-                        {
-                          "email": "%s",
-                          "password": "%s"
-                        }
-                        """.formatted(
-                        EMAIL,
-                        PASSWORD
-                ))
-                .when()
-                .post("/api/auth/login")
-                .then()
-                .log().ifValidationFails()
-                .statusCode(200)
-                .body("token", notNullValue())
-                .extract()
-                .path("token");
-    }
-
-    private void fundOriginAccount(
-            String token,
-            double amount
-    ) {
-
-        String request = """
-                {
-                    "amount": %s,
-                    "type": "Deposit",
-                    "description": "Preparación de transferencia"
-                }
-                """.formatted(amount);
-
-        given()
-                .header("Authorization", "Bearer " + token)
-                .contentType(ContentType.JSON)
-                .body(request)
-                .when()
-                .post(
-                        "/api/accounts/user/"
-                                + ORIGIN_USER_ID
-                                + "/deposit"
-                )
-                .then()
-                .log().ifValidationFails()
-                .statusCode(201);
-    }
+    // ============================================================
+    // MÉTODOS AUXILIARES ESPECÍFICOS DE TRANSFERENCIAS
+    // ============================================================
 
     private double getBalance(
-            String token,
-            Long userId
+            TestUser user
     ) {
 
         Number balance =
                 given()
-                        .header("Authorization", "Bearer " + token)
+                        .header(
+                                "Authorization",
+                                bearerToken(user.token())
+                        )
+                        .pathParam(
+                                "userId",
+                                user.id()
+                        )
                         .when()
                         .get(
-                                "/api/accounts/user/"
-                                        + userId
+                                "/api/accounts/user/{userId}"
                         )
                         .then()
                         .log().ifValidationFails()
@@ -563,57 +594,74 @@ public class TestTransfers {
         return balance.doubleValue();
     }
 
-    private Map<String, Object> getDestinationAccount(
-            String token
+    private Map<String, Object> getAccount(
+            TestUser user
     ) {
 
-        List<Map<String, Object>> accounts =
+        Map<String, Object> account =
                 given()
-                        .header("Authorization", "Bearer " + token)
+                        .header(
+                                "Authorization",
+                                bearerToken(user.token())
+                        )
+                        .pathParam(
+                                "userId",
+                                user.id()
+                        )
                         .when()
-                        .get("/api/accounts")
+                        .get(
+                                "/api/accounts/user/{userId}"
+                        )
                         .then()
                         .log().ifValidationFails()
                         .statusCode(200)
+                        .body("id", notNullValue())
+                        .body("userId", notNullValue())
+                        .body("balance", notNullValue())
+                        .body("cvu", notNullValue())
+                        .body("alias", notNullValue())
                         .extract()
                         .jsonPath()
-                        .getList("$");
+                        .getMap("$");
 
         assertNotNull(
-                accounts,
-                "La lista de cuentas no debe ser null"
+                account,
+                "La cuenta no debe ser null"
         );
 
-        Map<String, Object> destinationAccount =
-                accounts.stream()
-                        .filter(account ->
-                                !account.get("userId")
-                                        .toString()
-                                        .equals(
-                                                ORIGIN_USER_ID.toString()
-                                        )
-                        )
-                        .findFirst()
-                        .orElseThrow(() ->
-                                new AssertionError(
-                                        "Debe existir una cuenta destino "
-                                                + "diferente de la cuenta origen"
-                                )
-                        );
+        assertEquals(
+                user.id().toString(),
+                account.get("userId").toString(),
+                "La cuenta debe pertenecer al usuario indicado"
+        );
+
+        return account;
+    }
+
+    private String getAccountCvu(
+            TestUser user
+    ) {
+
+        Map<String, Object> account =
+                getAccount(user);
+
+        Object cvu = account.get("cvu");
 
         assertNotNull(
-                destinationAccount.get("cvu"),
-                "La cuenta destino debe tener CVU"
+                cvu,
+                "La cuenta debe tener un CVU"
         );
 
-        assertNotEquals(
-                ORIGIN_USER_ID.toString(),
-                destinationAccount.get("userId").toString(),
-                "La cuenta destino debe ser distinta "
-                        + "de la cuenta origen"
+        String cvuValue =
+                cvu.toString();
+
+        assertEquals(
+                22,
+                cvuValue.length(),
+                "El CVU debe tener 22 dígitos"
         );
 
-        return destinationAccount;
+        return cvuValue;
     }
 
     private String createTransferRequest(
@@ -623,10 +671,10 @@ public class TestTransfers {
 
         return """
                 {
-                    "amount": %s,
-                    "destination": "%s",
-                    "origin": "Cuenta origen",
-                    "type": "TRANSFER"
+                  "amount": %s,
+                  "destination": "%s",
+                  "origin": "Cuenta origen",
+                  "type": "TRANSFER"
                 }
                 """.formatted(
                 amount,

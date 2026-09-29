@@ -1,8 +1,11 @@
-import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import org.junit.jupiter.api.*;
+
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -11,70 +14,84 @@ import java.util.List;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @TestMethodOrder(OrderAnnotation.class)
-public class TestActivity {
+public class TestActivity extends BaseIntegrationTest {
 
-    private static final String BASE_URI = "http://localhost:8080";
+    private static final long NON_EXISTING_USER_ID =
+            999999999L;
 
-    private static final String EMAIL = "valentina@test.com";
+    private static final long NON_EXISTING_ACTIVITY_ID =
+            999999999L;
 
-    private static final String PASSWORD = "Valen1234";
-
-    private static final Long USER_ID = 11L;
-
-    private static final Long NON_EXISTING_USER_ID = 999999L;
-
-    private static final Long NON_EXISTING_ACTIVITY_ID = 999999L;
-
-    @BeforeEach
-    void setUp() {
-        RestAssured.baseURI = BASE_URI;
-    }
+    // ============================================================
+    // CP-ACT-001
+    // ============================================================
 
     @DisplayName("CP-ACT-001 - Consultar historial de actividades")
     @Order(1)
     @Test
     void shouldGetAccountActivitySuccessfully() {
 
-        String token = loginAndGetToken();
+        TestUser user = createAndAuthenticateUser();
+
+        createDeposit(
+                user,
+                "100.00",
+                "Depósito para historial"
+        );
 
         given()
-                .header("Authorization", "Bearer " + token)
-                .log().ifValidationFails()
-                .when()
-                .get(
-                        "/api/accounts/user/"
-                                + USER_ID
-                                + "/activity"
+                .header(
+                        "Authorization",
+                        bearerToken(user.token())
                 )
+                .pathParam("userId", user.id())
+                .when()
+                .get("/api/accounts/user/{userId}/activity")
                 .then()
                 .log().ifValidationFails()
                 .statusCode(200)
+                .contentType(ContentType.JSON)
                 .body("$", notNullValue())
                 .body("size()", greaterThan(0));
     }
+
+    // ============================================================
+    // CP-ACT-002
+    // ============================================================
 
     @DisplayName("CP-ACT-002 - Verificar estructura de las actividades")
     @Order(2)
     @Test
     void shouldReturnExpectedActivityStructure() {
 
-        String token = loginAndGetToken();
+        TestUser user = createAndAuthenticateUser();
+
+        createDeposit(
+                user,
+                "150.00",
+                "Depósito para validar estructura"
+        );
 
         List<Map<String, Object>> activities =
                 given()
                         .header(
                                 "Authorization",
-                                "Bearer " + token
+                                bearerToken(user.token())
                         )
+                        .pathParam("userId", user.id())
                         .when()
                         .get(
-                                "/api/accounts/user/"
-                                        + USER_ID
-                                        + "/activity"
+                                "/api/accounts/user/{userId}/activity"
                         )
                         .then()
                         .log().ifValidationFails()
@@ -132,34 +149,65 @@ public class TestActivity {
         }
     }
 
-    @DisplayName("CP-ACT-003 - Verificar actividades ordenadas por fecha descendente")
+    // ============================================================
+    // CP-ACT-003
+    // ============================================================
+
+    @DisplayName(
+            "CP-ACT-003 - Verificar actividades ordenadas por fecha descendente"
+    )
     @Order(3)
     @Test
     void shouldReturnActivitiesOrderedByDateDesc() {
 
-        String token = loginAndGetToken();
+        TestUser user = createAndAuthenticateUser();
+
+        createDeposit(
+                user,
+                "100.00",
+                "Primer depósito"
+        );
+
+        sleep(100);
+
+        createDeposit(
+                user,
+                "200.00",
+                "Segundo depósito"
+        );
+
+        sleep(100);
+
+        createDeposit(
+                user,
+                "300.00",
+                "Tercer depósito"
+        );
 
         Response response =
                 given()
                         .header(
                                 "Authorization",
-                                "Bearer " + token
+                                bearerToken(user.token())
                         )
-                        .log().ifValidationFails()
+                        .pathParam("userId", user.id())
                         .when()
                         .get(
-                                "/api/accounts/user/"
-                                        + USER_ID
-                                        + "/activity"
+                                "/api/accounts/user/{userId}/activity"
                         );
 
         response.then()
                 .log().ifValidationFails()
-                .statusCode(200);
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("size()", is(3));
 
         List<String> dateValues =
                 response.jsonPath()
-                        .getList("dated", String.class);
+                        .getList(
+                                "dated",
+                                String.class
+                        );
 
         assertNotNull(
                 dateValues,
@@ -191,101 +239,139 @@ public class TestActivity {
         );
     }
 
-    /*
-     * Este caso requiere una cuenta existente sin movimientos.
-     * Sustituye el ID cuando tengas disponible ese dato de prueba.
-     *
-     * Si todavía no existe una cuenta sin actividades,
-     * mantenlo deshabilitado o marcado como BLOCKED en la planilla.
-     */
-
+    // ============================================================
+    // CP-ACT-004
+    // ============================================================
 
     @DisplayName("CP-ACT-004 - Cuenta sin actividades")
     @Order(4)
     @Test
     void shouldReturnEmptyListWhenAccountHasNoActivities() {
 
-        String token = loginAndGetToken();
-
-        Long userWithoutActivityId = 38L;
+        /*
+         * Se crea el usuario y la cuenta, pero no se generan
+         * depósitos ni transferencias.
+         */
+        TestUser user = createAndAuthenticateUser();
 
         given()
-                .header("Authorization", "Bearer " + token)
-        .when()
-                .get(
-                        "/api/accounts/user/"
-                                + userWithoutActivityId
-                                + "/activity"
+                .header(
+                        "Authorization",
+                        bearerToken(user.token())
                 )
-        .then()
+                .pathParam("userId", user.id())
+                .when()
+                .get(
+                        "/api/accounts/user/{userId}/activity"
+                )
+                .then()
                 .log().ifValidationFails()
                 .statusCode(200)
+                .contentType(ContentType.JSON)
                 .body("$", empty());
     }
 
+    // ============================================================
+    // CP-ACT-005
+    // ============================================================
 
     @DisplayName("CP-ACT-005 - Consultar historial de cuenta inexistente")
     @Order(5)
     @Test
     void shouldReturn400WhenUserAccountDoesNotExist() {
 
-        String token = loginAndGetToken();
+        /*
+         * Se crea un usuario para obtener un token válido,
+         * pero se consulta un ID que no tiene cuenta.
+         */
+        TestUser authenticatedUser =
+                createAndAuthenticateUser();
 
         given()
-                .header("Authorization", "Bearer " + token)
-                .log().ifValidationFails()
+                .header(
+                        "Authorization",
+                        bearerToken(
+                                authenticatedUser.token()
+                        )
+                )
+                .pathParam(
+                        "userId",
+                        NON_EXISTING_USER_ID
+                )
                 .when()
                 .get(
-                        "/api/accounts/user/"
-                                + NON_EXISTING_USER_ID
-                                + "/activity"
+                        "/api/accounts/user/{userId}/activity"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(400);
     }
 
+    // ============================================================
+    // CP-ACT-006
+    // ============================================================
+
     @DisplayName("CP-ACT-006 - Consultar historial sin token")
     @Order(6)
     @Test
     void shouldRejectActivityHistoryWithoutToken() {
 
+        /*
+         * La cuenta debe existir para que el único error
+         * evaluado sea la ausencia del token.
+         */
+        TestUser user = createAndAuthenticateUser();
+
         given()
-                .log().ifValidationFails()
+                .pathParam("userId", user.id())
                 .when()
                 .get(
-                        "/api/accounts/user/"
-                                + USER_ID
-                                + "/activity"
+                        "/api/accounts/user/{userId}/activity"
                 )
                 .then()
                 .log().ifValidationFails()
-                .statusCode(anyOf(
-                        is(401),
-                        is(403)
-                ));
+                .statusCode(403);
     }
+
+    // ============================================================
+    // CP-ACT-007
+    // ============================================================
 
     @DisplayName("CP-ACT-007 - Consultar detalle de actividad")
     @Order(7)
     @Test
     void shouldGetActivityDetailSuccessfully() {
 
-        String token = loginAndGetToken();
-        Long activityId = getExistingActivityId(token);
+        TestUser user = createAndAuthenticateUser();
+
+        Long activityId =
+                createDeposit(
+                        user,
+                        "250.00",
+                        "Depósito para consultar detalle"
+                );
 
         given()
-                .header("Authorization", "Bearer " + token)
-                .log().ifValidationFails()
+                .header(
+                        "Authorization",
+                        bearerToken(user.token())
+                )
+                .pathParam(
+                        "activityId",
+                        activityId
+                )
                 .when()
                 .get(
-                        "/api/accounts/activity/"
-                                + activityId
+                        "/api/accounts/activity/{activityId}"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(200)
-                .body("id", is(activityId.intValue()))
+                .contentType(ContentType.JSON)
+                .body(
+                        "id",
+                        is(activityId.intValue())
+                )
                 .body("amount", notNullValue())
                 .body("name", notNullValue())
                 .body("dated", notNullValue())
@@ -294,24 +380,43 @@ public class TestActivity {
                 .body("destination", notNullValue());
     }
 
-    @DisplayName("CP-ACT-008 - Verificar estructura del detalle de actividad")
+    // ============================================================
+    // CP-ACT-008
+    // ============================================================
+
+    @DisplayName(
+            "CP-ACT-008 - Verificar estructura del detalle de actividad"
+    )
     @Order(8)
     @Test
     void shouldReturnExpectedActivityDetailStructure() {
 
-        String token = loginAndGetToken();
-        Long activityId = getExistingActivityId(token);
+        TestUser user = createAndAuthenticateUser();
+
+        Long activityId =
+                createDeposit(
+                        user,
+                        "175.00",
+                        "Depósito para validar estructura"
+                );
 
         given()
-                .header("Authorization", "Bearer " + token)
+                .header(
+                        "Authorization",
+                        bearerToken(user.token())
+                )
+                .pathParam(
+                        "activityId",
+                        activityId
+                )
                 .when()
                 .get(
-                        "/api/accounts/activity/"
-                                + activityId
+                        "/api/accounts/activity/{activityId}"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(200)
+                .contentType(ContentType.JSON)
                 .body("$", hasKey("id"))
                 .body("$", hasKey("amount"))
                 .body("$", hasKey("name"))
@@ -321,97 +426,71 @@ public class TestActivity {
                 .body("$", hasKey("destination"));
     }
 
+    // ============================================================
+    // CP-ACT-009
+    // ============================================================
+
     @DisplayName("CP-ACT-009 - Consultar actividad inexistente")
     @Order(9)
     @Test
     void shouldReturn404WhenActivityDoesNotExist() {
 
-        String token = loginAndGetToken();
+        TestUser authenticatedUser =
+                createAndAuthenticateUser();
 
         given()
-                .header("Authorization", "Bearer " + token)
-                .log().ifValidationFails()
+                .header(
+                        "Authorization",
+                        bearerToken(
+                                authenticatedUser.token()
+                        )
+                )
+                .pathParam(
+                        "activityId",
+                        NON_EXISTING_ACTIVITY_ID
+                )
                 .when()
                 .get(
-                        "/api/accounts/activity/"
-                                + NON_EXISTING_ACTIVITY_ID
+                        "/api/accounts/activity/{activityId}"
                 )
                 .then()
                 .log().ifValidationFails()
                 .statusCode(404);
     }
 
+    // ============================================================
+    // CP-ACT-010
+    // ============================================================
+
     @DisplayName("CP-ACT-010 - Consultar detalle sin token")
     @Order(10)
     @Test
     void shouldRejectActivityDetailWithoutToken() {
 
-        String preparationToken = loginAndGetToken();
-        Long activityId = getExistingActivityId(preparationToken);
+        /*
+         * Primero se genera una actividad válida usando el token.
+         * Después se consulta su detalle sin enviar autenticación.
+         */
+        TestUser user = createAndAuthenticateUser();
+
+        Long activityId =
+                createDeposit(
+                        user,
+                        "125.00",
+                        "Depósito para validar seguridad"
+                );
 
         given()
-                .log().ifValidationFails()
+                .pathParam(
+                        "activityId",
+                        activityId
+                )
                 .when()
-                .get("/api/accounts/activity/" + activityId)
+                .get(
+                        "/api/accounts/activity/{activityId}"
+                )
                 .then()
                 .log().ifValidationFails()
-                .statusCode(anyOf(
-                        is(401),
-                        is(403)
-                ));
-    }
-
-    private String loginAndGetToken() {
-
-        return given()
-                .contentType(ContentType.JSON)
-                .body("""
-                        {
-                          "email": "%s",
-                          "password": "%s"
-                        }
-                        """.formatted(
-                        EMAIL,
-                        PASSWORD
-                ))
-                .log().ifValidationFails()
-                .when()
-                .post("/api/auth/login")
-                .then()
-                .log().ifValidationFails()
-                .statusCode(200)
-                .body("token", notNullValue())
-                .extract()
-                .path("token");
-    }
-
-    private Long getExistingActivityId(String token) {
-
-        List<Integer> activityIds =
-                given()
-                        .header("Authorization", "Bearer " + token)
-                        .when()
-                        .get(
-                                "/api/accounts/user/"
-                                        + USER_ID
-                                        + "/activity"
-                        )
-                        .then()
-                        .statusCode(200)
-                        .extract()
-                        .jsonPath()
-                        .getList("id", Integer.class);
-
-        assertNotNull(
-                activityIds,
-                "La lista de IDs no debe ser null"
-        );
-
-        assertFalse(
-                activityIds.isEmpty(),
-                "Debe existir al menos una actividad"
-        );
-
-        return activityIds.get(0).longValue();
+                .statusCode(403);
     }
 }

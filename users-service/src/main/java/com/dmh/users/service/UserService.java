@@ -66,9 +66,9 @@ public class UserService {
         user.setPhone(request.getPhone());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
-        Rol defaultRole = rolRepository.findByName("USER").orElseGet(() -> {
+        Rol defaultRole = rolRepository.findByName("ROLE_USER").orElseGet(() -> {
             Rol r = new Rol();
-            r.setName("USER");
+            r.setName("ROLE_USER");
             return rolRepository.save(r);
         });
         user.setRole(defaultRole);
