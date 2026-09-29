@@ -28,7 +28,7 @@ public class AuthService {
             throw new InvalidPasswordException("Contraseña incorrecta");
         }
 
-        String token = jwtProvider.generateToken(user.getEmail(), user.getRole().getNombre());
+        String token = jwtProvider.generateToken(user.getEmail(), user.getRole().getName());
         return new AuthResponse(token);
     }
 

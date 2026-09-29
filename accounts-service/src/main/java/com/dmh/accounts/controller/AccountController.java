@@ -104,7 +104,7 @@ public class AccountController {
             @PathVariable Long cardId) {
 
         cardService.deleteCard(userId, cardId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/user/{userId}/transfers")
